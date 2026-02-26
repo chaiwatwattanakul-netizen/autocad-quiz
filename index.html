@@ -28,7 +28,7 @@
         <button id="btn-skip-loading" class="mt-6 text-slate-500 hover:text-blue-400 text-sm underline hidden">กดที่นี่เพื่อข้ามการโหลด (โหมดออฟไลน์)</button>
     </div>
 
-    <!-- Start Page (Cover) -->
+    <!-- Start Page -->
     <div id="start-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-blue-400 mb-2">AutoCAD Basic Quiz</h1>
@@ -45,9 +45,6 @@
             </div>
             <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 mt-4">เข้าสู่บททดสอบ</button>
         </div>
-        <div class="mt-6 text-[10px] text-slate-500 text-center leading-relaxed">
-            * ระบบจะบันทึกคะแนนลงฐานข้อมูล Firebase โดยอัตโนมัติ
-        </div>
     </div>
 
     <!-- Quiz Page -->
@@ -59,21 +56,17 @@
             </div>
             <div id="timer" class="text-orange-400 font-mono text-2xl font-bold">00:00</div>
         </div>
-        
         <div id="question-container" class="mb-8">
             <h2 id="question-text" class="text-xl md:text-2xl font-semibold mb-8 leading-snug">กำลังโหลดคำถาม...</h2>
-            <div id="options-container" class="grid grid-cols-1 gap-3">
-                <!-- Options injected by JS -->
-            </div>
+            <div id="options-container" class="grid grid-cols-1 gap-3"></div>
         </div>
-        
         <button id="btn-next" class="w-full bg-slate-600 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed transition-all" disabled>กรุณาเลือกคำตอบ</button>
     </div>
 
     <!-- Result Page -->
     <div id="result-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in text-center">
         <div class="mb-6">
-            <div class="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 text-green-500 rounded-full mb-4">
+            <div id="status-icon" class="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 text-green-500 rounded-full mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
@@ -93,10 +86,6 @@
             <div class="flex justify-between items-center border-t border-slate-800 pt-2 text-lg">
                 <span class="text-slate-400">คะแนน:</span>
                 <span class="text-2xl font-bold text-green-400"><span id="res-score"></span> / 5</span>
-            </div>
-            <div class="flex justify-between items-center border-t border-slate-800 pt-2">
-                <span class="text-slate-400">เวลาที่ใช้:</span>
-                <span id="res-time" class="font-mono font-bold text-orange-400"></span>
             </div>
         </div>
 
@@ -126,7 +115,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration From Your Screenshot
         const firebaseConfig = {
             apiKey: "AIzaSyB_1lxjfGHBvbuuT2GKA9N9pHFs8HZ0ydQ",
             authDomain: "autocad-quiz.firebaseapp.com",
@@ -144,6 +132,11 @@
 
         let isFirebaseActive = false;
         let currentUser = null;
+        let score = 0;
+        let currentIdx = 0;
+        let startTime, timerInterval;
+        let cheatCount = 0;
+        let selectedOption = null;
 
         const masterQuestions = [
             { q: "คำสั่งใดใน AutoCAD ที่ใช้สร้างเส้นตรง?", options: ["CIRCLE", "RECTANGLE", "LINE", "ARC"], correct: 2 },
@@ -154,45 +147,31 @@
         ];
 
         let selectedQuestions = [];
-        let currentIdx = 0;
-        let score = 0;
-        let startTime, timerInterval;
-        let cheatCount = 0;
-        let selectedOption = null;
 
-        // Init Firebase Connection
-        async function startApp() {
+        async function init() {
             try {
-                // Show skip button if it takes too long
                 setTimeout(() => {
                     if (!isFirebaseActive) document.getElementById('btn-skip-loading').classList.remove('hidden');
-                }, 5000);
+                }, 6000);
 
                 await signInAnonymously(auth);
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         currentUser = user;
                         isFirebaseActive = true;
-                        showStartPage();
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        document.getElementById('start-page').classList.remove('hidden');
+                        console.log("Firebase Auth Success:", user.uid);
                     }
                 });
             } catch (e) {
-                console.error("Connection error:", e);
+                console.error("Firebase Connection Failed:", e);
                 isFirebaseActive = false;
-                showStartPage();
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('start-page').classList.remove('hidden');
             }
         }
 
-        function showStartPage() {
-            document.getElementById('loading-screen').classList.add('hidden');
-            document.getElementById('start-page').classList.remove('hidden');
-        }
-
-        document.getElementById('btn-skip-loading').onclick = showStartPage;
-
-        startApp();
-
-        // UI Logic
         document.getElementById('btn-start').onclick = () => {
             const name = document.getElementById('student-name').value.trim();
             const sid = document.getElementById('student-id').value.trim();
@@ -201,7 +180,6 @@
             selectedQuestions = [...masterQuestions].sort(() => Math.random() - 0.5);
             document.getElementById('start-page').classList.add('hidden');
             document.getElementById('quiz-page').classList.remove('hidden');
-            
             startTime = new Date();
             timerInterval = setInterval(updateTimer, 1000);
             displayQuestion();
@@ -226,7 +204,6 @@
             const btnNext = document.getElementById('btn-next');
             document.getElementById('current-question-num').innerText = currentIdx + 1;
             document.getElementById('question-text').innerText = data.q;
-            
             const container = document.getElementById('options-container');
             container.innerHTML = '';
             selectedOption = null;
@@ -263,7 +240,7 @@
             clearInterval(timerInterval);
             document.getElementById('quiz-page').classList.add('hidden');
             document.getElementById('loading-screen').classList.remove('hidden');
-            document.getElementById('loading-text').innerText = "กำลังส่งคะแนน...";
+            document.getElementById('loading-text').innerText = "กำลังประมวลผลข้อมูล...";
 
             const name = document.getElementById('student-name').value;
             const sid = document.getElementById('student-id').value;
@@ -272,7 +249,6 @@
             let saved = false;
             if (isFirebaseActive && currentUser) {
                 try {
-                    // Path ตามกฎความปลอดภัย (Rule 1)
                     const resultRef = collection(db, 'artifacts', appId, 'public', 'data', 'exam_results');
                     await addDoc(resultRef, {
                         student_name: name,
@@ -280,21 +256,21 @@
                         score: score,
                         time_taken: timeTaken,
                         cheating_attempts: cheatCount,
-                        timestamp: serverTimestamp()
+                        timestamp: serverTimestamp(),
+                        uid: currentUser.uid
                     });
                     saved = true;
+                    console.log("Firestore Save Success");
                 } catch (e) {
-                    console.error("Save failed:", e);
+                    console.error("Firestore Save Error Details:", e);
                 }
             }
 
             document.getElementById('res-name').innerText = name;
             document.getElementById('res-id').innerText = sid;
             document.getElementById('res-score').innerText = score;
-            document.getElementById('res-time').innerText = timeTaken;
-            
             const statusEl = document.getElementById('save-status');
-            statusEl.innerText = saved ? "✅ บันทึกคะแนนสำเร็จ" : "⚠️ บันทึกออนไลน์ไม่สำเร็จ กรุณาโหลด Excel";
+            statusEl.innerText = saved ? "✅ บันทึกออนไลน์สำเร็จ" : "⚠️ บันทึกออนไลน์ไม่สำเร็จ (กรุณาตรวจสอบ Rules ใน Firebase) แต่ดาวน์โหลด Excel ได้";
             statusEl.className = saved ? "text-sm text-green-400 mb-4" : "text-sm text-orange-400 mb-4 font-bold";
 
             document.getElementById('loading-screen').classList.add('hidden');
@@ -305,28 +281,28 @@
             const name = document.getElementById('res-name').innerText;
             const id = document.getElementById('res-id').innerText;
             const scoreVal = document.getElementById('res-score').innerText;
-            const time = document.getElementById('res-time').innerText;
-
             const data = [
                 ["สรุปผลการสอบ AutoCAD"],
                 ["ชื่อ-นามสกุล", name],
                 ["รหัสนักศึกษา", id],
                 ["คะแนน", scoreVal + " / 5"],
-                ["เวลา", time],
+                ["เวลา", document.getElementById('timer').innerText],
                 ["วันที่สอบ", new Date().toLocaleString('th-TH')]
             ];
-
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.aoa_to_sheet(data);
-            
-            // ป้องกันรหัสนักศึกษากลายเป็นวันที่ (Cell B3)
             if(ws['B3']) ws['B3'].t = 's'; 
-
             XLSX.utils.book_append_sheet(wb, ws, "Result");
             XLSX.writeFile(wb, `Score_${id}.xlsx`);
         };
 
         document.getElementById('btn-download-excel').onclick = () => window.downloadExcel();
+        document.getElementById('btn-skip-loading').onclick = () => {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('start-page').classList.remove('hidden');
+        };
+
+        init();
     </script>
 </body>
 </html>
