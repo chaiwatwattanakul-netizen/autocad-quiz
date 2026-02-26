@@ -24,8 +24,8 @@
     <!-- Loading Overlay -->
     <div id="loading-screen" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[100]">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500 mb-4"></div>
-        <p id="loading-text">กำลังเชื่อมต่อฐานข้อมูล...</p>
-        <button id="btn-skip-loading" class="mt-6 text-slate-500 hover:text-blue-400 text-sm underline hidden">กดที่นี่เพื่อข้ามการโหลด (โหมดออฟไลน์)</button>
+        <p id="loading-text">กำลังเตรียมความพร้อม...</p>
+        <button id="btn-skip-loading" class="mt-6 text-slate-500 hover:text-blue-400 text-sm underline hidden">กดที่นี่เพื่อเข้าสู่ระบบ (โหมดสำรอง)</button>
     </div>
 
     <!-- Start Page -->
@@ -45,6 +45,7 @@
             </div>
             <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 mt-4">เข้าสู่บททดสอบ</button>
         </div>
+        <p class="text-center text-xs text-slate-500 mt-6">ระบบเชื่อมต่อฐานข้อมูล Cloud แล้ว ✅</p>
     </div>
 
     <!-- Quiz Page -->
@@ -115,6 +116,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Firebase Configuration จากโปรเจกต์ของคุณ
         const firebaseConfig = {
             apiKey: "AIzaSyB_1lxjfGHBvbuuT2GKA9N9pHFs8HZ0ydQ",
             authDomain: "autocad-quiz.firebaseapp.com",
@@ -125,6 +127,7 @@
             measurementId: "G-WYZGWPVKQC"
         };
 
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -148,20 +151,25 @@
 
         let selectedQuestions = [];
 
+        // ฟังก์ชันเริ่มต้นเชื่อมต่อ
         async function init() {
             try {
-                setTimeout(() => {
+                // ข้ามการโหลดถ้าใช้เวลานานเกินไป
+                const skipTimeout = setTimeout(() => {
                     if (!isFirebaseActive) document.getElementById('btn-skip-loading').classList.remove('hidden');
-                }, 6000);
+                }, 8000);
 
+                // พยายามเข้าระบบแบบไม่ระบุตัวตน (Anonymous)
                 await signInAnonymously(auth);
+                
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
+                        clearTimeout(skipTimeout);
                         currentUser = user;
                         isFirebaseActive = true;
                         document.getElementById('loading-screen').classList.add('hidden');
                         document.getElementById('start-page').classList.remove('hidden');
-                        console.log("Firebase Auth Success:", user.uid);
+                        console.log("Connect to Firebase Success:", user.uid);
                     }
                 });
             } catch (e) {
@@ -172,6 +180,7 @@
             }
         }
 
+        // เริ่มต้นบททดสอบ
         document.getElementById('btn-start').onclick = () => {
             const name = document.getElementById('student-name').value.trim();
             const sid = document.getElementById('student-id').value.trim();
@@ -184,6 +193,7 @@
             timerInterval = setInterval(updateTimer, 1000);
             displayQuestion();
 
+            // ตรวจสอบการโกง
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) {
                     cheatCount++;
@@ -220,7 +230,7 @@
                     selectedOption = i;
                     btnNext.disabled = false;
                     btnNext.classList.remove('opacity-50');
-                    btnNext.innerText = currentIdx === 4 ? "ส่งข้อสอบ" : "ข้อถัดไป";
+                    btnNext.innerText = currentIdx === 4 ? "ส่งคำตอบทั้งหมด" : "ข้อถัดไป";
                 };
                 container.appendChild(b);
             });
@@ -236,11 +246,12 @@
             }
         };
 
+        // สรุปผลและบันทึก
         async function finishQuiz() {
             clearInterval(timerInterval);
             document.getElementById('quiz-page').classList.add('hidden');
             document.getElementById('loading-screen').classList.remove('hidden');
-            document.getElementById('loading-text').innerText = "กำลังประมวลผลข้อมูล...";
+            document.getElementById('loading-text').innerText = "กำลังจัดเก็บผลการสอบ...";
 
             const name = document.getElementById('student-name').value;
             const sid = document.getElementById('student-id').value;
@@ -249,6 +260,7 @@
             let saved = false;
             if (isFirebaseActive && currentUser) {
                 try {
+                    // Path สำหรับบันทึกข้อมูลสาธารณะ (ตามกฎ Rule 1)
                     const resultRef = collection(db, 'artifacts', appId, 'public', 'data', 'exam_results');
                     await addDoc(resultRef, {
                         student_name: name,
@@ -260,9 +272,8 @@
                         uid: currentUser.uid
                     });
                     saved = true;
-                    console.log("Firestore Save Success");
                 } catch (e) {
-                    console.error("Firestore Save Error Details:", e);
+                    console.error("Firebase Store Error:", e);
                 }
             }
 
@@ -270,30 +281,40 @@
             document.getElementById('res-id').innerText = sid;
             document.getElementById('res-score').innerText = score;
             const statusEl = document.getElementById('save-status');
-            statusEl.innerText = saved ? "✅ บันทึกออนไลน์สำเร็จ" : "⚠️ บันทึกออนไลน์ไม่สำเร็จ (กรุณาตรวจสอบ Rules ใน Firebase) แต่ดาวน์โหลด Excel ได้";
-            statusEl.className = saved ? "text-sm text-green-400 mb-4" : "text-sm text-orange-400 mb-4 font-bold";
+            
+            if (saved) {
+                statusEl.innerText = "✅ ข้อมูลถูกบันทึกลงระบบ Cloud เรียบร้อยแล้ว";
+                statusEl.className = "text-sm text-green-400 mb-4 font-semibold";
+            } else {
+                statusEl.innerText = "⚠️ ไม่สามารถส่งข้อมูลออนไลน์ได้ แต่คุณยังโหลด Excel ได้";
+                statusEl.className = "text-sm text-orange-400 mb-4 font-bold";
+            }
 
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('result-page').classList.remove('hidden');
         }
 
+        // ดาวน์โหลดไฟล์ Excel
         window.downloadExcel = function() {
             const name = document.getElementById('res-name').innerText;
             const id = document.getElementById('res-id').innerText;
             const scoreVal = document.getElementById('res-score').innerText;
             const data = [
-                ["สรุปผลการสอบ AutoCAD"],
+                ["รายงานผลคะแนนสอบ AutoCAD"],
+                ["--------------------------"],
                 ["ชื่อ-นามสกุล", name],
                 ["รหัสนักศึกษา", id],
-                ["คะแนน", scoreVal + " / 5"],
-                ["เวลา", document.getElementById('timer').innerText],
-                ["วันที่สอบ", new Date().toLocaleString('th-TH')]
+                ["คะแนนที่ได้", scoreVal + " / 5"],
+                ["เวลาที่ใช้", document.getElementById('timer').innerText],
+                ["พฤติกรรมการสลับจอ", cheatCount + " ครั้ง"],
+                ["วันที่สอบ", new Date().toLocaleString('th-TH')],
+                ["--------------------------"],
+                ["สถานะการส่ง", isFirebaseActive ? "ออนไลน์ (Firebase)" : "ออฟไลน์ (Local)"]
             ];
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.aoa_to_sheet(data);
-            if(ws['B3']) ws['B3'].t = 's'; 
             XLSX.utils.book_append_sheet(wb, ws, "Result");
-            XLSX.writeFile(wb, `Score_${id}.xlsx`);
+            XLSX.writeFile(wb, `AutoCAD_Score_${id}.xlsx`);
         };
 
         document.getElementById('btn-download-excel').onclick = () => window.downloadExcel();
@@ -302,6 +323,7 @@
             document.getElementById('start-page').classList.remove('hidden');
         };
 
+        // เริ่มต้นการทำงาน
         init();
     </script>
 </body>
