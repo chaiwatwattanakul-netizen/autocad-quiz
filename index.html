@@ -3,15 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoCAD Basic Quiz with GitHub Integration</title>
+    <title>AutoCAD Basic Quiz - GitHub Ready</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
-        body { font-family: 'Sarabun', sans-serif; }
+        body { font-family: 'Sarabun', sans-serif; overflow-x: hidden; }
         .hidden { display: none; }
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -19,294 +15,232 @@
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
 
-    <!-- Loading Overlay -->
-    <div id="loading" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
-        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500 mb-4"></div>
-        <p>กำลังเตรียมความพร้อม...</p>
-    </div>
-
     <!-- Start Page (Cover) -->
-    <div id="start-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
+    <div id="start-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 fade-in">
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-blue-400 mb-2">AutoCAD Basic Quiz</h1>
-            <p class="text-slate-400">บททดสอบการใช้งาน AutoCAD เบื้องต้น และการทำงานร่วมกับ GitHub</p>
+            <p class="text-slate-400 font-light">แบบทดสอบพื้นฐาน AutoCAD สำหรับผู้เริ่มต้น</p>
         </div>
         <div class="space-y-4">
             <div>
-                <label class="block text-sm mb-1">ชื่อ-นามสกุล</label>
-                <input type="text" id="student-name" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ภาษาไทยหรืออังกฤษ">
+                <label class="block text-sm mb-1 text-slate-300">ชื่อ-นามสกุล</label>
+                <input type="text" id="student-name" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-white" placeholder="ระบุชื่อของคุณ">
             </div>
             <div>
-                <label class="block text-sm mb-1">รหัสนักศึกษา</label>
-                <input type="text" id="student-id" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น 65000000">
+                <label class="block text-sm mb-1 text-slate-300">รหัสนักศึกษา</label>
+                <input type="text" id="student-id" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-white" placeholder="ระบุรหัสประจำตัว">
             </div>
-            <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors mt-4">เริ่มทำข้อสอบ</button>
+            <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 mt-4">เข้าสู่บททดสอบ</button>
         </div>
-        <div class="mt-6 text-xs text-slate-500 text-center">
-            * ระบบจะบันทึกพฤติกรรมการทุจริตและการสลับหน้าจอ
+        <div class="mt-6 text-[10px] text-slate-500 text-center leading-relaxed">
+            * ระบบจะบันทึกเวลาที่ใช้และตรวจจับการสลับหน้าจอเพื่อป้องกันการทุจริต
         </div>
     </div>
 
     <!-- Quiz Page -->
-    <div id="quiz-page" class="max-w-2xl w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
+    <div id="quiz-page" class="max-w-2xl w-full bg-slate-800 p-6 md:p-10 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
         <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
-            <div>
+            <div class="text-lg">
                 <span class="text-blue-400 font-bold">ข้อที่:</span>
-                <span id="current-question-num">1</span>/5
+                <span id="current-question-num" class="text-xl">1</span><span class="text-slate-500"> / 5</span>
             </div>
-            <div id="timer" class="text-red-400 font-mono text-xl">00:00</div>
+            <div id="timer" class="text-orange-400 font-mono text-2xl font-bold">00:00</div>
         </div>
+        
         <div id="question-container" class="mb-8">
-            <h2 id="question-text" class="text-xl font-semibold mb-6">คำถามจะปรากฏที่นี่...</h2>
-            <div id="options-container" class="space-y-3">
-                <!-- Options will be injected here -->
+            <h2 id="question-text" class="text-xl md:text-2xl font-semibold mb-8 leading-snug">กำลังโหลดคำถาม...</h2>
+            <div id="options-container" class="grid grid-cols-1 gap-3">
+                <!-- Options injected by JS -->
             </div>
         </div>
-        <button id="btn-next" class="w-full bg-slate-600 text-white font-bold py-3 rounded-lg cursor-not-allowed opacity-50" disabled>ถัดไป</button>
+        
+        <button id="btn-next" class="w-full bg-slate-600 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed transition-all" disabled>กรุณาเลือกคำตอบ</button>
     </div>
 
     <!-- Result Page -->
-    <div id="result-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
-        <div class="text-center mb-8">
-            <div class="inline-block p-4 bg-blue-600 rounded-full mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <div id="result-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in text-center">
+        <div class="mb-6">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 text-green-500 rounded-full mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
             </div>
-            <h2 class="text-3xl font-bold mb-2">ส่งข้อสอบเรียบร้อย!</h2>
-            <p class="text-slate-400">นี่คือผลคะแนนของคุณ</p>
+            <h2 class="text-3xl font-bold text-white">ส่งข้อสอบแล้ว!</h2>
         </div>
-        <div class="bg-slate-700 rounded-xl p-6 space-y-4 mb-8">
-            <div class="flex justify-between border-b border-slate-600 pb-2">
-                <span>ชื่อ:</span>
-                <span id="res-name" class="font-bold">-</span>
+
+        <div class="bg-slate-900/50 border border-slate-700 rounded-2xl p-6 mb-6 text-left space-y-3">
+            <div class="flex justify-between items-center">
+                <span class="text-slate-400">นักศึกษา:</span>
+                <span id="res-name" class="font-semibold text-blue-400"></span>
             </div>
-            <div class="flex justify-between border-b border-slate-600 pb-2">
-                <span>รหัส:</span>
-                <span id="res-id" class="font-bold">-</span>
+            <div class="flex justify-between items-center border-t border-slate-800 pt-2">
+                <span class="text-slate-400">รหัส:</span>
+                <span id="res-id" class="font-semibold text-blue-400"></span>
             </div>
-            <div class="flex justify-between border-b border-slate-600 pb-2 text-xl">
-                <span>คะแนนที่ได้:</span>
-                <span class="text-green-400 font-bold"><span id="res-score">0</span>/5</span>
+            <div class="flex justify-between items-center border-t border-slate-800 pt-2 text-lg">
+                <span class="text-slate-400">คะแนน:</span>
+                <span class="text-2xl font-bold text-green-400"><span id="res-score"></span> / 5</span>
             </div>
-            <div class="flex justify-between">
-                <span>เวลาที่ใช้:</span>
-                <span id="res-time" class="font-bold">00:00</span>
+            <div class="flex justify-between items-center border-t border-slate-800 pt-2">
+                <span class="text-slate-400">เวลาที่ใช้:</span>
+                <span id="res-time" class="font-mono font-bold text-orange-400"></span>
+            </div>
+            <div id="cheat-info" class="text-xs text-red-400 text-center pt-2 hidden">
+                ⚠️ ตรวจพบการพยายามทุจริต <span id="res-cheat"></span> ครั้ง
             </div>
         </div>
-        <p class="text-center text-sm text-slate-500 italic mb-4">"ข้อมูลของคุณถูกบันทึกลงในฐานข้อมูลกลางแล้ว"</p>
-        <button onclick="location.reload()" class="w-full border border-slate-600 py-2 rounded-lg hover:bg-slate-700 transition">กลับหน้าหลัก</button>
+
+        <button onclick="downloadResult()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg mb-3 shadow-lg shadow-green-900/20">ดาวน์โหลดใบยืนยันคะแนน (CSV)</button>
+        <button onclick="location.reload()" class="w-full text-slate-400 hover:text-white text-sm transition">เริ่มสอบใหม่อีกครั้ง</button>
     </div>
 
-    <!-- Anticheat Warning -->
-    <div id="cheat-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[100] hidden">
-        <div class="bg-red-600 p-6 rounded-xl text-center max-w-sm">
-            <h3 class="text-2xl font-bold mb-4">ตรวจพบการสลับหน้าจอ!</h3>
-            <p class="mb-6">กรุณาทำข้อสอบในหน้าต่างนี้เท่านั้น การทำแบบนี้อาจส่งผลต่อคะแนนของคุณ</p>
-            <button onclick="document.getElementById('cheat-modal').classList.add('hidden')" class="bg-white text-red-600 px-6 py-2 rounded-lg font-bold">รับทราบ</button>
+    <!-- Anticheat Modal -->
+    <div id="cheat-modal" class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-red-600 p-8 rounded-2xl text-center max-w-sm border-2 border-red-400 shadow-2xl">
+            <div class="text-5xl mb-4">🚫</div>
+            <h3 class="text-2xl font-bold mb-2">ห้ามออกจากหน้าจอสอบ!</h3>
+            <p class="text-red-100 mb-6 font-light">ระบบตรวจพบว่าคุณสลับหน้าต่าง หรือเปิดโปรแกรมอื่น พฤติกรรมนี้จะถูกบันทึกส่งอาจารย์</p>
+            <button onclick="closeCheatModal()" class="bg-white text-red-600 px-8 py-3 rounded-xl font-bold shadow-lg">ฉันจะกลับไปทำต่อ</button>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase Configuration (Using provided globals)
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'autocad-quiz-01';
-
-        // Quiz Data
+    <script>
         const masterQuestions = [
-            {
-                q: "คำสั่งใดใน AutoCAD ที่ใช้ในการบันทึกโปรเจกต์ลงใน GitHub Repository โดยตรง (ผ่าน Plugin)?",
-                options: ["SAVE", "COMMIT (ผ่าน Git Desktop/Extensions)", "EXPORT", "WBLOCK"],
-                correct: 1
-            },
-            {
-                q: "ในการทำงานทีมผ่าน GitHub ไฟล์นามสกุลใดของ AutoCAD ที่ควรใส่ใน .gitignore?",
-                options: [".dwg", ".bak และ .dwl", ".dxf", ".pdf"],
-                correct: 1
-            },
-            {
-                q: "ฟังก์ชัน 'Compare' ใน AutoCAD มีประโยชน์อย่างไรเมื่อใช้งานร่วมกับการดึงไฟล์จาก GitHub?",
-                options: ["ช่วยหาไฟล์ที่หายไป", "เปรียบเทียบความแตกต่างระหว่างสองเวอร์ชันของแบบ", "ช่วยแก้ไขโค้ด Lisp", "บีบอัดไฟล์ให้เล็กลง"],
-                correct: 1
-            },
-            {
-                q: "คำสั่งพื้นฐานที่สุดในการสร้างเส้นตรงใน AutoCAD คืออะไร?",
-                options: ["CIRCLE", "RECTANGLE", "LINE", "ARC"],
-                correct: 2
-            },
-            {
-                q: "ถ้าต้องการส่งงาน (Push) ไฟล์ AutoCAD ไปยัง GitHub เราต้องทำขั้นตอนใดก่อน?",
-                options: ["Scale แบบ", "Explode วัตถุ", "Stage and Commit changes", "Print เป็น PDF"],
-                correct: 2
-            }
+            { q: "คำสั่งใดใน AutoCAD ที่ใช้สร้างเส้นตรง?", options: ["CIRCLE", "RECTANGLE", "LINE", "ARC"], correct: 2 },
+            { q: "นามสกุลไฟล์หลักของ AutoCAD คืออะไร?", options: [".jpg", ".dwg", ".exe", ".pdf"], correct: 1 },
+            { q: "การ Push งานขึ้น GitHub คือกระบวนการใด?", options: ["ลบไฟล์ทิ้ง", "ส่งไฟล์ขึ้นเซิร์ฟเวอร์", "ดาวน์โหลดโปรแกรม", "การวาดวงกลม"], correct: 1 },
+            { q: "หากต้องการเก็บประวัติการแก้แบบ AutoCAD ใน GitHub ต้องใช้คำสั่งใด?", options: ["COMMIT", "DELETE", "FORMAT", "ERASE"], correct: 0 },
+            { q: "คำสั่ง 'TRIM' ใช้สำหรับทำอะไร?", options: ["ยืดเส้น", "สร้างวงกลม", "ตัดเส้นส่วนเกิน", "เปลี่ยนสีเส้น"], correct: 2 }
         ];
 
-        // State Management
         let selectedQuestions = [];
         let currentIdx = 0;
         let score = 0;
         let startTime, timerInterval;
         let cheatCount = 0;
         let selectedOption = null;
-        let user = null;
 
-        // Elements
-        const loading = document.getElementById('loading');
-        const startPage = document.getElementById('start-page');
-        const quizPage = document.getElementById('quiz-page');
-        const resultPage = document.getElementById('result-page');
-        const btnStart = document.getElementById('btn-start');
-        const btnNext = document.getElementById('btn-next');
-        const qText = document.getElementById('question-text');
-        const optionsContainer = document.getElementById('options-container');
-        const qNum = document.getElementById('current-question-num');
-        const timerDisplay = document.getElementById('timer');
+        // UI Helpers
+        const hide = el => el.classList.add('hidden');
+        const show = el => el.classList.remove('hidden');
 
-        // Init App
-        async function init() {
-            try {
-                await signInAnonymously(auth);
-                loading.classList.add('hidden');
-                startPage.classList.remove('hidden');
-            } catch (err) {
-                console.error(err);
-                alert("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณารีโหลดหน้าเว็บ");
-            }
-        }
-
-        onAuthStateChanged(auth, (u) => { user = u; });
-
-        // Start Quiz
-        btnStart.onclick = () => {
+        document.getElementById('btn-start').onclick = () => {
             const name = document.getElementById('student-name').value.trim();
             const sid = document.getElementById('student-id').value.trim();
+            if (!name || !sid) return alert("กรุณาระบุข้อมูลให้ครบถ้วน");
 
-            if (!name || !sid) {
-                alert("กรุณากรอกชื่อและรหัสนักศึกษา");
-                return;
-            }
-
-            // Randomize questions
             selectedQuestions = [...masterQuestions].sort(() => Math.random() - 0.5);
-            
-            startPage.classList.add('hidden');
-            quizPage.classList.remove('hidden');
+            hide(document.getElementById('start-page'));
+            show(document.getElementById('quiz-page'));
             
             startTime = new Date();
             startTimer();
-            showQuestion();
-            
-            // Anti-cheat: Visibility Change
+            displayQuestion();
+
+            // Anti-cheat setup
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) {
                     cheatCount++;
-                    document.getElementById('cheat-modal').classList.remove('hidden');
+                    show(document.getElementById('cheat-modal'));
                 }
             });
         };
 
         function startTimer() {
             timerInterval = setInterval(() => {
-                const now = new Date();
-                const diff = new Date(now - startTime);
+                const diff = new Date(new Date() - startTime);
                 const m = String(diff.getUTCMinutes()).padStart(2, '0');
                 const s = String(diff.getUTCSeconds()).padStart(2, '0');
-                timerDisplay.innerText = `${m}:${s}`;
+                document.getElementById('timer').innerText = `${m}:${s}`;
             }, 1000);
         }
 
-        function showQuestion() {
+        function displayQuestion() {
             const data = selectedQuestions[currentIdx];
-            qNum.innerText = currentIdx + 1;
-            qText.innerText = data.q;
-            optionsContainer.innerHTML = '';
+            const btnNext = document.getElementById('btn-next');
+            
+            document.getElementById('current-question-num').innerText = currentIdx + 1;
+            document.getElementById('question-text').innerText = data.q;
+            
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
             selectedOption = null;
+            
             btnNext.disabled = true;
-            btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+            btnNext.className = "w-full bg-slate-700 text-slate-500 font-bold py-4 rounded-xl cursor-not-allowed";
+            btnNext.innerText = "กรุณาเลือกคำตอบ";
 
-            // Randomize options for each question
-            const optsWithIndex = data.options.map((opt, i) => ({ text: opt, originalIdx: i }));
-            optsWithIndex.sort(() => Math.random() - 0.5);
+            // Randomize options for this user
+            const options = data.options.map((text, i) => ({ text, i }));
+            options.sort(() => Math.random() - 0.5);
 
-            optsWithIndex.forEach((opt) => {
-                const btn = document.createElement('button');
-                btn.className = "w-full text-left p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl transition-all outline-none";
-                btn.innerText = opt.text;
-                btn.onclick = () => {
-                    // Reset others
-                    Array.from(optionsContainer.children).forEach(child => {
-                        child.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-900/30', 'border-blue-500');
-                    });
-                    // Select current
-                    btn.classList.add('ring-2', 'ring-blue-500', 'bg-blue-900/30', 'border-blue-500');
-                    selectedOption = opt.originalIdx;
+            options.forEach(opt => {
+                const b = document.createElement('button');
+                b.className = "w-full text-left p-5 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl transition-all outline-none focus:border-blue-500 active:scale-[0.98]";
+                b.innerText = opt.text;
+                b.onclick = () => {
+                    Array.from(container.children).forEach(c => c.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-900/20', 'border-blue-500'));
+                    b.classList.add('ring-2', 'ring-blue-500', 'bg-blue-900/20', 'border-blue-500');
+                    selectedOption = opt.i;
                     btnNext.disabled = false;
-                    btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
-                    btnNext.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                    btnNext.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/20 transition-all transform active:scale-95";
+                    btnNext.innerText = currentIdx === 4 ? "ส่งคำตอบ" : "ข้อถัดไป";
                 };
-                optionsContainer.appendChild(btn);
+                container.appendChild(b);
             });
         }
 
-        btnNext.onclick = () => {
-            if (selectedOption === selectedQuestions[currentIdx].correct) {
-                score++;
-            }
-
-            currentIdx++;
-            if (currentIdx < selectedQuestions.length) {
-                showQuestion();
+        document.getElementById('btn-next').onclick = () => {
+            if (selectedOption === selectedQuestions[currentIdx].correct) score++;
+            
+            if (currentIdx < 4) {
+                currentIdx++;
+                displayQuestion();
             } else {
-                finishQuiz();
+                finish();
             }
         };
 
-        async function finishQuiz() {
+        function finish() {
             clearInterval(timerInterval);
-            const timeTaken = timerDisplay.innerText;
-            const name = document.getElementById('student-name').value;
-            const sid = document.getElementById('student-id').value;
+            hide(document.getElementById('quiz-page'));
+            show(document.getElementById('result-page'));
 
-            quizPage.classList.add('hidden');
-            loading.classList.remove('hidden');
-
-            // Save to Firestore (Rule 1: Strict Paths)
-            if (user) {
-                try {
-                    const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'exam_results');
-                    await addDoc(collectionRef, {
-                        studentName: name,
-                        studentId: sid,
-                        score: score,
-                        totalQuestions: selectedQuestions.length,
-                        timeUsed: timeTaken,
-                        cheatingFlags: cheatCount,
-                        submittedAt: serverTimestamp(),
-                        uid: user.uid
-                    });
-                } catch (err) {
-                    console.error("Save error:", err);
-                }
-            }
-
-            // Display results
-            document.getElementById('res-name').innerText = name;
-            document.getElementById('res-id').innerText = sid;
+            document.getElementById('res-name').innerText = document.getElementById('student-name').value;
+            document.getElementById('res-id').innerText = document.getElementById('student-id').value;
             document.getElementById('res-score').innerText = score;
-            document.getElementById('res-time').innerText = timeTaken;
-
-            loading.classList.add('hidden');
-            resultPage.classList.remove('hidden');
+            document.getElementById('res-time').innerText = document.getElementById('timer').innerText;
+            
+            if (cheatCount > 0) {
+                show(document.getElementById('cheat-info'));
+                document.getElementById('res-cheat').innerText = cheatCount;
+            }
         }
 
-        init();
+        function closeCheatModal() {
+            hide(document.getElementById('cheat-modal'));
+        }
+
+        function downloadResult() {
+            const name = document.getElementById('res-name').innerText;
+            const id = document.getElementById('res-id').innerText;
+            const scoreVal = score;
+            const time = document.getElementById('res-time').innerText;
+            const cheats = cheatCount;
+            const date = new Date().toLocaleString('th-TH');
+
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + "Student Name,ID,Score,Time Taken,Cheat Flags,Date\n"
+                + `"${name}","${id}",${scoreVal}/5,"${time}",${cheats},"${date}"`;
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Result_${id}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     </script>
 </body>
 </html>
