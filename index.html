@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoCAD Basic Quiz with GitHub Integration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+        body { font-family: 'Sarabun', sans-serif; }
+        .hidden { display: none; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
+
+    <!-- Loading Overlay -->
+    <div id="loading" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500 mb-4"></div>
+        <p>กำลังเตรียมความพร้อม...</p>
+    </div>
+
+    <!-- Start Page (Cover) -->
+    <div id="start-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-400 mb-2">AutoCAD Basic Quiz</h1>
+            <p class="text-slate-400">บททดสอบการใช้งาน AutoCAD เบื้องต้น และการทำงานร่วมกับ GitHub</p>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm mb-1">ชื่อ-นามสกุล</label>
+                <input type="text" id="student-name" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ภาษาไทยหรืออังกฤษ">
+            </div>
+            <div>
+                <label class="block text-sm mb-1">รหัสนักศึกษา</label>
+                <input type="text" id="student-id" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น 65000000">
+            </div>
+            <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors mt-4">เริ่มทำข้อสอบ</button>
+        </div>
+        <div class="mt-6 text-xs text-slate-500 text-center">
+            * ระบบจะบันทึกพฤติกรรมการทุจริตและการสลับหน้าจอ
+        </div>
+    </div>
+
+    <!-- Quiz Page -->
+    <div id="quiz-page" class="max-w-2xl w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
+        <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+            <div>
+                <span class="text-blue-400 font-bold">ข้อที่:</span>
+                <span id="current-question-num">1</span>/5
+            </div>
+            <div id="timer" class="text-red-400 font-mono text-xl">00:00</div>
+        </div>
+        <div id="question-container" class="mb-8">
+            <h2 id="question-text" class="text-xl font-semibold mb-6">คำถามจะปรากฏที่นี่...</h2>
+            <div id="options-container" class="space-y-3">
+                <!-- Options will be injected here -->
+            </div>
+        </div>
+        <button id="btn-next" class="w-full bg-slate-600 text-white font-bold py-3 rounded-lg cursor-not-allowed opacity-50" disabled>ถัดไป</button>
+    </div>
+
+    <!-- Result Page -->
+    <div id="result-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
+        <div class="text-center mb-8">
+            <div class="inline-block p-4 bg-blue-600 rounded-full mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h2 class="text-3xl font-bold mb-2">ส่งข้อสอบเรียบร้อย!</h2>
+            <p class="text-slate-400">นี่คือผลคะแนนของคุณ</p>
+        </div>
+        <div class="bg-slate-700 rounded-xl p-6 space-y-4 mb-8">
+            <div class="flex justify-between border-b border-slate-600 pb-2">
+                <span>ชื่อ:</span>
+                <span id="res-name" class="font-bold">-</span>
+            </div>
+            <div class="flex justify-between border-b border-slate-600 pb-2">
+                <span>รหัส:</span>
+                <span id="res-id" class="font-bold">-</span>
+            </div>
+            <div class="flex justify-between border-b border-slate-600 pb-2 text-xl">
+                <span>คะแนนที่ได้:</span>
+                <span class="text-green-400 font-bold"><span id="res-score">0</span>/5</span>
+            </div>
+            <div class="flex justify-between">
+                <span>เวลาที่ใช้:</span>
+                <span id="res-time" class="font-bold">00:00</span>
+            </div>
+        </div>
+        <p class="text-center text-sm text-slate-500 italic mb-4">"ข้อมูลของคุณถูกบันทึกลงในฐานข้อมูลกลางแล้ว"</p>
+        <button onclick="location.reload()" class="w-full border border-slate-600 py-2 rounded-lg hover:bg-slate-700 transition">กลับหน้าหลัก</button>
+    </div>
+
+    <!-- Anticheat Warning -->
+    <div id="cheat-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[100] hidden">
+        <div class="bg-red-600 p-6 rounded-xl text-center max-w-sm">
+            <h3 class="text-2xl font-bold mb-4">ตรวจพบการสลับหน้าจอ!</h3>
+            <p class="mb-6">กรุณาทำข้อสอบในหน้าต่างนี้เท่านั้น การทำแบบนี้อาจส่งผลต่อคะแนนของคุณ</p>
+            <button onclick="document.getElementById('cheat-modal').classList.add('hidden')" class="bg-white text-red-600 px-6 py-2 rounded-lg font-bold">รับทราบ</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration (Using provided globals)
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'autocad-quiz-01';
+
+        // Quiz Data
+        const masterQuestions = [
+            {
+                q: "คำสั่งใดใน AutoCAD ที่ใช้ในการบันทึกโปรเจกต์ลงใน GitHub Repository โดยตรง (ผ่าน Plugin)?",
+                options: ["SAVE", "COMMIT (ผ่าน Git Desktop/Extensions)", "EXPORT", "WBLOCK"],
+                correct: 1
+            },
+            {
+                q: "ในการทำงานทีมผ่าน GitHub ไฟล์นามสกุลใดของ AutoCAD ที่ควรใส่ใน .gitignore?",
+                options: [".dwg", ".bak และ .dwl", ".dxf", ".pdf"],
+                correct: 1
+            },
+            {
+                q: "ฟังก์ชัน 'Compare' ใน AutoCAD มีประโยชน์อย่างไรเมื่อใช้งานร่วมกับการดึงไฟล์จาก GitHub?",
+                options: ["ช่วยหาไฟล์ที่หายไป", "เปรียบเทียบความแตกต่างระหว่างสองเวอร์ชันของแบบ", "ช่วยแก้ไขโค้ด Lisp", "บีบอัดไฟล์ให้เล็กลง"],
+                correct: 1
+            },
+            {
+                q: "คำสั่งพื้นฐานที่สุดในการสร้างเส้นตรงใน AutoCAD คืออะไร?",
+                options: ["CIRCLE", "RECTANGLE", "LINE", "ARC"],
+                correct: 2
+            },
+            {
+                q: "ถ้าต้องการส่งงาน (Push) ไฟล์ AutoCAD ไปยัง GitHub เราต้องทำขั้นตอนใดก่อน?",
+                options: ["Scale แบบ", "Explode วัตถุ", "Stage and Commit changes", "Print เป็น PDF"],
+                correct: 2
+            }
+        ];
+
+        // State Management
+        let selectedQuestions = [];
+        let currentIdx = 0;
+        let score = 0;
+        let startTime, timerInterval;
+        let cheatCount = 0;
+        let selectedOption = null;
+        let user = null;
+
+        // Elements
+        const loading = document.getElementById('loading');
+        const startPage = document.getElementById('start-page');
+        const quizPage = document.getElementById('quiz-page');
+        const resultPage = document.getElementById('result-page');
+        const btnStart = document.getElementById('btn-start');
+        const btnNext = document.getElementById('btn-next');
+        const qText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const qNum = document.getElementById('current-question-num');
+        const timerDisplay = document.getElementById('timer');
+
+        // Init App
+        async function init() {
+            try {
+                await signInAnonymously(auth);
+                loading.classList.add('hidden');
+                startPage.classList.remove('hidden');
+            } catch (err) {
+                console.error(err);
+                alert("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณารีโหลดหน้าเว็บ");
+            }
+        }
+
+        onAuthStateChanged(auth, (u) => { user = u; });
+
+        // Start Quiz
+        btnStart.onclick = () => {
+            const name = document.getElementById('student-name').value.trim();
+            const sid = document.getElementById('student-id').value.trim();
+
+            if (!name || !sid) {
+                alert("กรุณากรอกชื่อและรหัสนักศึกษา");
+                return;
+            }
+
+            // Randomize questions
+            selectedQuestions = [...masterQuestions].sort(() => Math.random() - 0.5);
+            
+            startPage.classList.add('hidden');
+            quizPage.classList.remove('hidden');
+            
+            startTime = new Date();
+            startTimer();
+            showQuestion();
+            
+            // Anti-cheat: Visibility Change
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    cheatCount++;
+                    document.getElementById('cheat-modal').classList.remove('hidden');
+                }
+            });
+        };
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                const now = new Date();
+                const diff = new Date(now - startTime);
+                const m = String(diff.getUTCMinutes()).padStart(2, '0');
+                const s = String(diff.getUTCSeconds()).padStart(2, '0');
+                timerDisplay.innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function showQuestion() {
+            const data = selectedQuestions[currentIdx];
+            qNum.innerText = currentIdx + 1;
+            qText.innerText = data.q;
+            optionsContainer.innerHTML = '';
+            selectedOption = null;
+            btnNext.disabled = true;
+            btnNext.classList.add('opacity-50', 'cursor-not-allowed');
+
+            // Randomize options for each question
+            const optsWithIndex = data.options.map((opt, i) => ({ text: opt, originalIdx: i }));
+            optsWithIndex.sort(() => Math.random() - 0.5);
+
+            optsWithIndex.forEach((opt) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl transition-all outline-none";
+                btn.innerText = opt.text;
+                btn.onclick = () => {
+                    // Reset others
+                    Array.from(optionsContainer.children).forEach(child => {
+                        child.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-900/30', 'border-blue-500');
+                    });
+                    // Select current
+                    btn.classList.add('ring-2', 'ring-blue-500', 'bg-blue-900/30', 'border-blue-500');
+                    selectedOption = opt.originalIdx;
+                    btnNext.disabled = false;
+                    btnNext.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btnNext.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                };
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        btnNext.onclick = () => {
+            if (selectedOption === selectedQuestions[currentIdx].correct) {
+                score++;
+            }
+
+            currentIdx++;
+            if (currentIdx < selectedQuestions.length) {
+                showQuestion();
+            } else {
+                finishQuiz();
+            }
+        };
+
+        async function finishQuiz() {
+            clearInterval(timerInterval);
+            const timeTaken = timerDisplay.innerText;
+            const name = document.getElementById('student-name').value;
+            const sid = document.getElementById('student-id').value;
+
+            quizPage.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            // Save to Firestore (Rule 1: Strict Paths)
+            if (user) {
+                try {
+                    const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'exam_results');
+                    await addDoc(collectionRef, {
+                        studentName: name,
+                        studentId: sid,
+                        score: score,
+                        totalQuestions: selectedQuestions.length,
+                        timeUsed: timeTaken,
+                        cheatingFlags: cheatCount,
+                        submittedAt: serverTimestamp(),
+                        uid: user.uid
+                    });
+                } catch (err) {
+                    console.error("Save error:", err);
+                }
+            }
+
+            // Display results
+            document.getElementById('res-name').innerText = name;
+            document.getElementById('res-id').innerText = sid;
+            document.getElementById('res-score').innerText = score;
+            document.getElementById('res-time').innerText = timeTaken;
+
+            loading.classList.add('hidden');
+            resultPage.classList.remove('hidden');
+        }
+
+        init();
+    </script>
+</body>
+</html>
