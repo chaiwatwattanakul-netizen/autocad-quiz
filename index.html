@@ -9,6 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
         body { font-family: 'Sarabun', sans-serif; overflow-x: hidden; }
@@ -98,7 +100,15 @@
         </div>
 
         <p class="text-sm text-green-500 mb-4 font-semibold">✅ ข้อมูลถูกบันทึกลงฐานข้อมูลกลางแล้ว</p>
-        <button onclick="location.reload()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition">กลับหน้าหลัก</button>
+        <div class="space-y-2">
+            <button id="btn-download-excel" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                ดาวน์โหลดใบยืนยันคะแนน (Excel)
+            </button>
+            <button onclick="location.reload()" class="w-full border border-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition">กลับหน้าหลัก</button>
+        </div>
     </div>
 
     <!-- Anticheat Modal -->
@@ -240,12 +250,11 @@
 
             if (currentUser) {
                 try {
-                    // Rule 1: Use specific path for public data
                     const resultRef = collection(db, 'artifacts', appId, 'public', 'data', 'exam_results');
                     await addDoc(resultRef, {
                         student_name: name,
-                        student_id: sid,
-                        score: score,
+                        student_id: sid.toString(), // Force string to prevent numeric format issues
+                        score: Number(score),
                         time_taken: timeTaken,
                         cheating_attempts: cheatCount,
                         timestamp: serverTimestamp(),
@@ -264,6 +273,42 @@
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('result-page').classList.remove('hidden');
         }
+
+        // Optimized Excel Export Function
+        window.downloadResult = function() {
+            const name = document.getElementById('res-name').innerText;
+            const id = document.getElementById('res-id').innerText;
+            const scoreVal = document.getElementById('res-score').innerText;
+            const time = document.getElementById('res-time').innerText;
+            const dateStr = new Date().toLocaleString('th-TH');
+
+            // Create Data Array
+            const data = [
+                ["ระบบรายงานผลการสอบ AutoCAD"],
+                [""],
+                ["หัวข้อ", "รายละเอียด"],
+                ["ชื่อ-นามสกุล", name],
+                ["รหัสนักศึกษา", id], // Excel might still try to auto-format, SheetJS will handle it
+                ["คะแนนที่ได้", scoreVal + " / 5"],
+                ["เวลาที่ใช้", time],
+                ["วันที่สอบ", dateStr]
+            ];
+
+            // Create Workbook and Worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Set column widths
+            ws['!cols'] = [{ wch: 20 }, { wch: 30 }];
+
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, "Result");
+
+            // Write and download
+            XLSX.writeFile(wb, `QuizResult_${id}.xlsx`);
+        };
+
+        document.getElementById('btn-download-excel').onclick = () => window.downloadResult();
     </script>
 </body>
 </html>
