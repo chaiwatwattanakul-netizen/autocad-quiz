@@ -46,7 +46,7 @@
             <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 mt-4">เข้าสู่บททดสอบ</button>
         </div>
         <div class="mt-6 text-[10px] text-slate-500 text-center leading-relaxed">
-            * หากเชื่อมต่ออินเทอร์เน็ต คะแนนจะถูกบันทึกเข้าระบบส่วนกลางโดยอัตโนมัติ
+            * ระบบจะบันทึกคะแนนลงฐานข้อมูล Firebase โดยอัตโนมัติ
         </div>
     </div>
 
@@ -100,7 +100,7 @@
             </div>
         </div>
 
-        <p id="save-status" class="text-sm text-slate-400 mb-4 italic">กำลังตรวจสอบสถานะการบันทึก...</p>
+        <p id="save-status" class="text-sm text-slate-400 mb-4 italic">กำลังบันทึกคะแนน...</p>
         <div class="space-y-2">
             <button id="btn-download-excel" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -126,9 +126,24 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global config from environment
-        let db, auth, appId;
+        // Firebase Configuration From Your Screenshot
+        const firebaseConfig = {
+            apiKey: "AIzaSyB_1lxjfGHBvbuuT2GKA9N9pHFs8HZ0ydQ",
+            authDomain: "autocad-quiz.firebaseapp.com",
+            projectId: "autocad-quiz",
+            storageBucket: "autocad-quiz.firebasestorage.app",
+            messagingSenderId: "653102807487",
+            appId: "1:653102807487:web:d109bd15a758bdb8a4498a",
+            measurementId: "G-WYZGWPVKQC"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = 'autocad-quiz-v1';
+
         let isFirebaseActive = false;
+        let currentUser = null;
 
         const masterQuestions = [
             { q: "คำสั่งใดใน AutoCAD ที่ใช้สร้างเส้นตรง?", options: ["CIRCLE", "RECTANGLE", "LINE", "ARC"], correct: 2 },
@@ -144,54 +159,40 @@
         let startTime, timerInterval;
         let cheatCount = 0;
         let selectedOption = null;
-        let currentUser = null;
 
-        // Init Firebase with Error Handling & Timeout
-        async function initFirebase() {
+        // Init Firebase Connection
+        async function startApp() {
             try {
-                // Check if config exists
-                if (typeof __firebase_config !== 'undefined') {
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-                    appId = typeof __app_id !== 'undefined' ? __app_id : 'autocad-quiz-v1';
+                // Show skip button if it takes too long
+                setTimeout(() => {
+                    if (!isFirebaseActive) document.getElementById('btn-skip-loading').classList.remove('hidden');
+                }, 5000);
 
-                    // Show skip button after 4 seconds
-                    setTimeout(() => {
-                        const skipBtn = document.getElementById('btn-skip-loading');
-                        if (skipBtn && !isFirebaseActive) skipBtn.classList.remove('hidden');
-                    }, 4000);
-
-                    await signInAnonymously(auth);
-                    
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            currentUser = user;
-                            isFirebaseActive = true;
-                            enterApp();
-                        }
-                    });
-                } else {
-                    throw new Error("No Config");
-                }
-            } catch (error) {
-                console.warn("Firebase Bypass Activated:", error);
+                await signInAnonymously(auth);
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        isFirebaseActive = true;
+                        showStartPage();
+                    }
+                });
+            } catch (e) {
+                console.error("Connection error:", e);
                 isFirebaseActive = false;
-                enterApp();
+                showStartPage();
             }
         }
 
-        function enterApp() {
+        function showStartPage() {
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('start-page').classList.remove('hidden');
         }
 
-        document.getElementById('btn-skip-loading').onclick = enterApp;
+        document.getElementById('btn-skip-loading').onclick = showStartPage;
 
-        initFirebase();
+        startApp();
 
-        // Quiz Logic
+        // UI Logic
         document.getElementById('btn-start').onclick = () => {
             const name = document.getElementById('student-name').value.trim();
             const sid = document.getElementById('student-id').value.trim();
@@ -202,7 +203,7 @@
             document.getElementById('quiz-page').classList.remove('hidden');
             
             startTime = new Date();
-            startTimer();
+            timerInterval = setInterval(updateTimer, 1000);
             displayQuestion();
 
             document.addEventListener('visibilitychange', () => {
@@ -213,13 +214,11 @@
             });
         };
 
-        function startTimer() {
-            timerInterval = setInterval(() => {
-                const diff = new Date(new Date() - startTime);
-                const m = String(diff.getUTCMinutes()).padStart(2, '0');
-                const s = String(diff.getUTCSeconds()).padStart(2, '0');
-                document.getElementById('timer').innerText = `${m}:${s}`;
-            }, 1000);
+        function updateTimer() {
+            const diff = new Date(new Date() - startTime);
+            const m = String(diff.getUTCMinutes()).padStart(2, '0');
+            const s = String(diff.getUTCSeconds()).padStart(2, '0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
         }
 
         function displayQuestion() {
@@ -252,7 +251,6 @@
 
         document.getElementById('btn-next').onclick = async () => {
             if (selectedOption === selectedQuestions[currentIdx].correct) score++;
-            
             if (currentIdx < 4) {
                 currentIdx++;
                 displayQuestion();
@@ -265,28 +263,28 @@
             clearInterval(timerInterval);
             document.getElementById('quiz-page').classList.add('hidden');
             document.getElementById('loading-screen').classList.remove('hidden');
-            document.getElementById('loading-text').innerText = "กำลังประมวลผล...";
+            document.getElementById('loading-text').innerText = "กำลังส่งคะแนน...";
 
             const name = document.getElementById('student-name').value;
             const sid = document.getElementById('student-id').value;
             const timeTaken = document.getElementById('timer').innerText;
 
-            let savedOnline = false;
+            let saved = false;
             if (isFirebaseActive && currentUser) {
                 try {
+                    // Path ตามกฎความปลอดภัย (Rule 1)
                     const resultRef = collection(db, 'artifacts', appId, 'public', 'data', 'exam_results');
                     await addDoc(resultRef, {
                         student_name: name,
                         student_id: sid.toString(),
-                        score: Number(score),
+                        score: score,
                         time_taken: timeTaken,
                         cheating_attempts: cheatCount,
-                        timestamp: serverTimestamp(),
-                        user_uid: currentUser.uid
+                        timestamp: serverTimestamp()
                     });
-                    savedOnline = true;
+                    saved = true;
                 } catch (e) {
-                    console.error("Firebase Save Error:", e);
+                    console.error("Save failed:", e);
                 }
             }
 
@@ -296,54 +294,39 @@
             document.getElementById('res-time').innerText = timeTaken;
             
             const statusEl = document.getElementById('save-status');
-            if (savedOnline) {
-                statusEl.innerText = "✅ บันทึกข้อมูลลงฐานข้อมูลออนไลน์แล้ว";
-                statusEl.classList.replace('text-slate-400', 'text-green-400');
-            } else {
-                statusEl.innerText = "⚠️ โหมดออฟไลน์: กรุณาดาวน์โหลดไฟล์ Excel เพื่อยืนยันคะแนน";
-                statusEl.classList.replace('text-slate-400', 'text-orange-400');
-            }
+            statusEl.innerText = saved ? "✅ บันทึกคะแนนสำเร็จ" : "⚠️ บันทึกออนไลน์ไม่สำเร็จ กรุณาโหลด Excel";
+            statusEl.className = saved ? "text-sm text-green-400 mb-4" : "text-sm text-orange-400 mb-4 font-bold";
 
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('result-page').classList.remove('hidden');
         }
 
-        // Optimized Excel Export Function
-        window.downloadResult = function() {
+        window.downloadExcel = function() {
             const name = document.getElementById('res-name').innerText;
             const id = document.getElementById('res-id').innerText;
             const scoreVal = document.getElementById('res-score').innerText;
             const time = document.getElementById('res-time').innerText;
-            const dateStr = new Date().toLocaleString('th-TH');
-
-            // Force ID to be treated as text by adding a single quote if needed (standard Excel trick)
-            const idText = id.toString();
 
             const data = [
-                ["รายงานผลการสอบ AutoCAD (Official)"],
-                [""],
-                ["หัวข้อ", "ข้อมูลนักศึกษา"],
+                ["สรุปผลการสอบ AutoCAD"],
                 ["ชื่อ-นามสกุล", name],
-                ["รหัสนักศึกษา", idText], 
-                ["คะแนน (เต็ม 5)", parseInt(scoreVal)],
-                ["เวลาที่ใช้", time],
-                ["พยายามทุจริต", cheatCount + " ครั้ง"],
-                ["วันที่สอบ", dateStr]
+                ["รหัสนักศึกษา", id],
+                ["คะแนน", scoreVal + " / 5"],
+                ["เวลา", time],
+                ["วันที่สอบ", new Date().toLocaleString('th-TH')]
             ];
 
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // ป้องกันรหัสนักศึกษากลายเป็นวันที่ (Cell B3)
+            if(ws['B3']) ws['B3'].t = 's'; 
 
-            // Set column styles to force text format for the ID cell (B5)
-            if(!ws['B5']) ws['B5'] = {};
-            ws['B5'].t = 's'; // Force type to string
-
-            ws['!cols'] = [{ wch: 25 }, { wch: 35 }];
             XLSX.utils.book_append_sheet(wb, ws, "Result");
             XLSX.writeFile(wb, `Score_${id}.xlsx`);
         };
 
-        document.getElementById('btn-download-excel').onclick = () => window.downloadResult();
+        document.getElementById('btn-download-excel').onclick = () => window.downloadExcel();
     </script>
 </body>
 </html>
