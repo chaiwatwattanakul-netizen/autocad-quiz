@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - SolidWorks Quiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
+        .fade-in { animation: fadeIn 0.4s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen p-4 md:p-8">
+
+    <!-- Login Section -->
+    <div id="login-section" class="max-w-md mx-auto mt-20 bg-white p-8 rounded-2xl shadow-xl border border-slate-200 fade-in">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 text-blue-600 rounded-full mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-800">ระบบรายงานผลคะแนน</h1>
+            <p class="text-slate-500 text-sm mt-1">เฉพาะผู้สอนเท่านั้น</p>
+        </div>
+        <div class="space-y-4">
+            <input type="password" id="admin-password" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="กรอกรหัสผ่าน (admin123)">
+            <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-md">เข้าสู่ระบบ</button>
+        </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard-section" class="max-w-6xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-xl border border-slate-200 hidden fade-in">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-slate-200 pb-6">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-blue-700">รายงานผลการสอบ SolidWorks</h1>
+                <p class="text-slate-500 mt-1">ข้อมูลอัปเดตแบบ Real-time จาก Firebase Database</p>
+            </div>
+            <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                <button id="btn-refresh" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-semibold transition flex items-center justify-center gap-2 border border-slate-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    รีเฟรชข้อมูล
+                </button>
+                <button id="btn-export" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-bold transition flex items-center justify-center gap-2 shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    ดาวน์โหลด Excel
+                </button>
+            </div>
+        </div>
+        
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                <p class="text-blue-600 text-sm font-semibold mb-1">จำนวนผู้เข้าสอบทั้งหมด</p>
+                <h3 id="stat-total" class="text-3xl font-bold text-blue-800">0</h3>
+            </div>
+            <div class="bg-green-50 border border-green-100 p-4 rounded-xl">
+                <p class="text-green-600 text-sm font-semibold mb-1">คะแนนเฉลี่ย</p>
+                <h3 id="stat-avg" class="text-3xl font-bold text-green-800">0.00</h3>
+            </div>
+            <div class="bg-red-50 border border-red-100 p-4 rounded-xl">
+                <p class="text-red-600 text-sm font-semibold mb-1">ตรวจพบการสลับหน้าจอ</p>
+                <h3 id="stat-cheat" class="text-3xl font-bold text-red-800">0 <span class="text-sm font-normal">ครั้ง</span></h3>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto bg-white rounded-xl border border-slate-200">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-100 text-slate-600 text-sm uppercase tracking-wider">
+                    <tr>
+                        <th class="p-4 border-b border-slate-200 font-semibold">วัน-เวลาที่ส่ง</th>
+                        <th class="p-4 border-b border-slate-200 font-semibold">รหัสนักศึกษา</th>
+                        <th class="p-4 border-b border-slate-200 font-semibold">ชื่อ-นามสกุล</th>
+                        <th class="p-4 border-b border-slate-200 font-semibold">คะแนน</th>
+                        <th class="p-4 border-b border-slate-200 font-semibold">เวลาที่ใช้</th>
+                        <th class="p-4 border-b border-slate-200 font-semibold text-center">สลับจอ (ครั้ง)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
+                    <tr><td colspan="6" class="p-8 text-center text-slate-500">กำลังรอการเข้าสู่ระบบ...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ตั้งค่า Firebase ตัวเดิมของคุณ
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4rm4t6BDl-rA83wxHK1AP3CW3c9-G6xo",
+            authDomain: "solidworksquiz.firebaseapp.com",
+            projectId: "solidworksquiz",
+            storageBucket: "solidworksquiz.firebasestorage.app",
+            messagingSenderId: "193698389533",
+            appId: "1:193698389533:web:3ffcd05ee183541eb1b0f4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let allAdminData = [];
+
+        // Login System
+        document.getElementById('btn-login').onclick = async () => {
+            const pwd = document.getElementById('admin-password').value;
+            if (pwd === "admin123") {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('dashboard-section').classList.remove('hidden');
+                
+                const tbody = document.getElementById('table-body');
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-blue-500">กำลังเชื่อมต่อฐานข้อมูล...</td></tr>';
+                
+                try {
+                    await signInAnonymously(auth); // Login เพื่อให้มีสิทธิ์อ่าน
+                    await loadData();
+                } catch (e) {
+                    console.error("Auth Error:", e);
+                    tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-red-500 font-bold">เชื่อมต่อล้มเหลว กรุณาตรวจสอบการตั้งค่า Firebase</td></tr>';
+                }
+            } else {
+                alert("รหัสผ่านไม่ถูกต้อง");
+            }
+        };
+
+        // ล็อกอินเมื่อกด Enter
+        document.getElementById('admin-password').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') document.getElementById('btn-login').click();
+        });
+
+        document.getElementById('btn-refresh').onclick = () => loadData();
+
+        async function loadData() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-blue-500">กำลังโหลดข้อมูลล่าสุด...</td></tr>';
+            
+            try {
+                const querySnapshot = await getDocs(collection(db, 'exam_results'));
+                allAdminData = [];
+                let totalScore = 0;
+                let totalCheats = 0;
+                
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const item = {
+                        id: doc.id,
+                        ...data,
+                        jsDate: data.timestamp ? new Date(data.timestamp.seconds * 1000) : new Date() 
+                    };
+                    allAdminData.push(item);
+                    totalScore += Number(data.score) || 0;
+                    totalCheats += Number(data.cheating_attempts) || 0;
+                });
+
+                allAdminData.sort((a, b) => b.jsDate - a.jsDate); // เรียงล่าสุดขึ้นก่อน
+                renderTable();
+
+                // อัปเดตสถิติด้านบน
+                document.getElementById('stat-total').innerText = allAdminData.length;
+                document.getElementById('stat-avg').innerText = allAdminData.length ? (totalScore / allAdminData.length).toFixed(2) : "0.00";
+                document.getElementById('stat-cheat').innerText = totalCheats;
+
+            } catch (error) {
+                console.error("Fetch Data Error:", error);
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-500">
+                    <p class="font-bold mb-2">❌ ไม่สามารถดึงข้อมูลได้</p>
+                    <p class="text-sm">กรุณาไปที่ Firebase Console > Firestore Database > Rules</p>
+                    <p class="text-sm mt-1">ตั้งค่าให้เป็น: <code>allow read, write: if true;</code></p>
+                </td></tr>`;
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            if (allAdminData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">ยังไม่มีผู้ส่งข้อสอบ</td></tr>';
+                return;
+            }
+
+            allAdminData.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-50 transition-colors";
+                
+                // ตรวจจับเด็กสลับจอ (ถ้าสลับจอเกิน 0 ให้ไฮไลต์แดง)
+                const cheatClass = item.cheating_attempts > 0 ? "text-red-600 font-bold bg-red-50 rounded-lg px-2 py-1" : "text-slate-500";
+                
+                row.innerHTML = `
+                    <td class="p-4 border-b border-slate-100 whitespace-nowrap">${item.jsDate.toLocaleString('th-TH')}</td>
+                    <td class="p-4 border-b border-slate-100 font-mono text-blue-600 font-semibold">${item.student_id}</td>
+                    <td class="p-4 border-b border-slate-100 font-medium">${item.student_name}</td>
+                    <td class="p-4 border-b border-slate-100 font-bold text-green-600 text-lg">${item.score}/${item.total_score}</td>
+                    <td class="p-4 border-b border-slate-100 text-slate-500">${item.time_taken}</td>
+                    <td class="p-4 border-b border-slate-100 text-center"><span class="${cheatClass}">${item.cheating_attempts || 0}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        document.getElementById('btn-export').onclick = () => {
+            if (allAdminData.length === 0) return alert("ไม่มีข้อมูลให้ดาวน์โหลด");
+
+            const sheetData = [
+                ["วันที่และเวลาส่ง", "รหัสนักศึกษา", "ชื่อ-นามสกุล", "คะแนนที่ได้", "คะแนนเต็ม", "เวลาที่ใช้", "จำนวนครั้งที่พยายามสลับหน้าจอ"]
+            ];
+
+            allAdminData.forEach(item => {
+                sheetData.push([
+                    item.jsDate.toLocaleString('th-TH'), 
+                    item.student_id,
+                    item.student_name,
+                    item.score,
+                    item.total_score,
+                    item.time_taken,
+                    item.cheating_attempts || 0
+                ]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+            ws['!cols'] = [{wch: 25}, {wch: 15}, {wch: 30}, {wch: 12}, {wch: 10}, {wch: 15}, {wch: 30}];
+            XLSX.utils.book_append_sheet(wb, ws, "คะแนนนักศึกษา");
+            XLSX.writeFile(wb, `รายงานผลสอบ_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.xlsx`);
+        };
+    </script>
+</body>
+</html>
