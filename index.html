@@ -19,16 +19,22 @@
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
 
+    <!-- Loading Screen -->
     <div id="loading-screen" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[100]">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500 mb-4"></div>
         <p id="loading-text">กำลังเตรียมความพร้อม...</p>
         <button id="btn-skip-loading" class="mt-6 text-slate-500 hover:text-blue-400 text-sm underline hidden">กดที่นี่เพื่อเข้าสู่ระบบ (โหมดสำรอง)</button>
     </div>
 
+    <!-- Start Page -->
     <div id="start-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-blue-400 mb-2">AutoCAD Basic Quiz</h1>
-            <p class="text-slate-400 font-light">แบบทดสอบพื้นฐาน AutoCAD สำหรับผู้เริ่มต้น</p>
+            <p class="text-slate-400 font-light mb-2">แบบทดสอบพื้นฐาน AutoCAD สำหรับผู้เริ่มต้น</p>
+            <!-- แสดงจำนวนข้อในหน้าแรก -->
+            <div class="inline-block bg-slate-700/50 border border-slate-600 rounded-full px-4 py-1 mt-2">
+                <p class="text-yellow-400 text-sm font-semibold">จำนวนข้อสอบทั้งหมด: <span id="display-total-start">0</span> ข้อ</p>
+            </div>
         </div>
         <div class="space-y-4">
             <div>
@@ -39,16 +45,17 @@
                 <label class="block text-sm mb-1 text-slate-300">รหัสนักศึกษา</label>
                 <input type="text" id="student-id" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-white" placeholder="ระบุรหัสประจำตัว">
             </div>
-            <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 mt-4">เข้าสู่บททดสอบ</button>
+            <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 mt-4 cursor-pointer">เข้าสู่บททดสอบ</button>
         </div>
         <p class="text-center text-xs text-slate-500 mt-6 font-mono">Firebase Status: Connected ✅</p>
     </div>
 
+    <!-- Quiz Page -->
     <div id="quiz-page" class="max-w-2xl w-full bg-slate-800 p-6 md:p-10 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
         <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
             <div class="text-lg">
                 <span class="text-blue-400 font-bold">ข้อที่:</span>
-                <span id="current-question-num" class="text-xl">1</span><span id="total-questions-num" class="text-slate-500"> / 5</span>
+                <span id="current-question-num" class="text-xl font-bold">1</span><span id="total-questions-num" class="text-slate-500"> / 5</span>
             </div>
             <div id="timer" class="text-orange-400 font-mono text-2xl font-bold">00:00</div>
         </div>
@@ -56,9 +63,11 @@
             <h2 id="question-text" class="text-xl md:text-2xl font-semibold mb-8 leading-snug font-sarabun">กำลังโหลดคำถาม...</h2>
             <div id="options-container" class="grid grid-cols-1 gap-3"></div>
         </div>
-        <button id="btn-next" class="w-full bg-slate-600 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed transition-all" disabled>กรุณาเลือกคำตอบ</button>
+        <!-- ปุ่มข้อถัดไป (สถานะเริ่มต้นจะถูกตั้งใน JS) -->
+        <button id="btn-next" class="w-full transition-all duration-300" disabled>กรุณาเลือกคำตอบ</button>
     </div>
 
+    <!-- Result Page -->
     <div id="result-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in text-center">
         <div class="mb-6">
             <div id="status-icon" class="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 text-green-500 rounded-full mb-4">
@@ -86,21 +95,22 @@
 
         <p id="save-status" class="text-sm text-slate-400 mb-4 italic">กำลังบันทึกคะแนน...</p>
         <div class="space-y-2 font-sarabun">
-            <button id="btn-download-excel" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2">
+            <button id="btn-download-excel" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2 cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 ดาวน์โหลดไฟล์ยืนยัน (Excel)
             </button>
-            <button onclick="location.reload()" class="w-full border border-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition">กลับหน้าหลัก</button>
+            <button onclick="location.reload()" class="w-full border border-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition cursor-pointer">กลับหน้าหลัก</button>
         </div>
     </div>
 
+    <!-- Cheat Modal -->
     <div id="cheat-modal" class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-red-600 p-8 rounded-2xl text-center max-w-sm border-2 border-red-400 shadow-2xl">
             <h3 class="text-2xl font-bold mb-2 font-sarabun">ห้ามสลับหน้าจอ!</h3>
             <p class="text-red-100 mb-6 font-light font-sarabun">ระบบตรวจพบการสลับหน้าต่าง พฤติกรรมนี้จะถูกบันทึกเพื่อตรวจสอบ</p>
-            <button onclick="document.getElementById('cheat-modal').classList.add('hidden')" class="bg-white text-red-600 px-8 py-3 rounded-xl font-bold shadow-lg">ฉันจะกลับไปทำต่อ</button>
+            <button onclick="document.getElementById('cheat-modal').classList.add('hidden')" class="bg-white text-red-600 px-8 py-3 rounded-xl font-bold shadow-lg cursor-pointer hover:bg-red-50 transition">ฉันจะกลับไปทำต่อ</button>
         </div>
     </div>
 
@@ -194,6 +204,9 @@
             { q: "คำสั่ง DIVIDE ใช้ทำอะไร?", options: ["ตัดเส้นออกเป็นส่วนๆ ที่ขาดออกจากกัน", "แบ่งวัตถุออกเป็นช่วงๆ ที่มีระยะห่างเท่ากันโดยการวางจุด (Point)", "หารระยะความยาวเส้น", "ลดขนาดวัตถุลงครึ่งหนึ่ง"], correct: 1 },
             { q: "คำสั่ง JOIN ทำหน้าที่อะไร?", options: ["รวมเส้นหลายเส้นที่ต่อกันให้กลายเป็นเส้นเดียวกัน", "เชื่อมต่ออินเทอร์เน็ต", "จับกลุ่มวัตถุ", "สร้างจุดตัด"], correct: 0 }
         ];
+
+        // แสดงจำนวนข้อสอบในหน้าแรก
+        document.getElementById('display-total-start').innerText = masterQuestions.length;
 
         // ==========================================
         // การตั้งค่า Firebase
@@ -291,23 +304,29 @@
             const container = document.getElementById('options-container');
             container.innerHTML = '';
             selectedOption = null;
+            
+            // ตั้งค่าสถานะปุ่มตอนเริ่มข้อใหม่ (ปิดการกด, ห้ามเมาส์คลิก)
             btnNext.disabled = true;
-            btnNext.classList.add('opacity-50');
+            btnNext.className = "w-full bg-slate-700 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed opacity-50 transition-all duration-300";
+            btnNext.innerText = "กรุณาเลือกคำตอบ";
 
             data.options.forEach((opt, i) => {
                 const b = document.createElement('button');
-                b.className = "w-full text-left p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl transition-all font-sarabun";
+                b.className = "w-full text-left p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl transition-all font-sarabun cursor-pointer";
                 b.innerText = opt;
                 b.onclick = () => {
                     Array.from(container.children).forEach(c => c.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-900/20'));
                     b.classList.add('ring-2', 'ring-blue-500', 'bg-blue-900/20');
                     selectedOption = i;
+                    
+                    // เมื่อเลือกคำตอบแล้ว เปิดให้ปุ่มคลิกได้ และเปลี่ยนเมาส์เป็นรูปนิ้วชี้
                     btnNext.disabled = false;
-                    btnNext.classList.remove('opacity-50');
                     
                     if (currentIdx === selectedQuestions.length - 1) {
+                        btnNext.className = "w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-xl cursor-pointer shadow-lg transform active:scale-95 transition-all duration-300";
                         btnNext.innerText = "ส่งคำตอบทั้งหมด";
                     } else {
+                        btnNext.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl cursor-pointer shadow-lg transform active:scale-95 transition-all duration-300";
                         btnNext.innerText = "ข้อถัดไป";
                     }
                 };
@@ -316,6 +335,8 @@
         }
 
         document.getElementById('btn-next').onclick = async () => {
+            if (selectedOption === null) return;
+
             if (selectedOption === selectedQuestions[currentIdx].correct) score++;
             
             if (currentIdx < selectedQuestions.length - 1) {
