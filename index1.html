@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoCAD Basic Quiz - Firebase Integrated</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+        body { font-family: 'Sarabun', sans-serif; overflow-x: hidden; }
+        .hidden { display: none; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
+
+    <div id="loading-screen" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[100]">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500 mb-4"></div>
+        <p id="loading-text">กำลังเตรียมความพร้อม...</p>
+        <button id="btn-skip-loading" class="mt-6 text-slate-500 hover:text-blue-400 text-sm underline hidden">กดที่นี่เพื่อเข้าสู่ระบบ (โหมดสำรอง)</button>
+    </div>
+
+    <div id="start-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-400 mb-2">AutoCAD Basic Quiz</h1>
+            <p class="text-slate-400 font-light">แบบทดสอบพื้นฐาน AutoCAD สำหรับผู้เริ่มต้น</p>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm mb-1 text-slate-300">ชื่อ-นามสกุล</label>
+                <input type="text" id="student-name" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-white" placeholder="ระบุชื่อของคุณ">
+            </div>
+            <div>
+                <label class="block text-sm mb-1 text-slate-300">รหัสนักศึกษา</label>
+                <input type="text" id="student-id" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-white" placeholder="ระบุรหัสประจำตัว">
+            </div>
+            <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 mt-4">เข้าสู่บททดสอบ</button>
+        </div>
+        <p class="text-center text-xs text-slate-500 mt-6 font-mono">Firebase Status: Connected ✅</p>
+    </div>
+
+    <div id="quiz-page" class="max-w-2xl w-full bg-slate-800 p-6 md:p-10 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
+        <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+            <div class="text-lg">
+                <span class="text-blue-400 font-bold">ข้อที่:</span>
+                <span id="current-question-num" class="text-xl">1</span><span id="total-questions-num" class="text-slate-500"> / 5</span>
+            </div>
+            <div id="timer" class="text-orange-400 font-mono text-2xl font-bold">00:00</div>
+        </div>
+        <div id="question-container" class="mb-8">
+            <h2 id="question-text" class="text-xl md:text-2xl font-semibold mb-8 leading-snug font-sarabun">กำลังโหลดคำถาม...</h2>
+            <div id="options-container" class="grid grid-cols-1 gap-3"></div>
+        </div>
+        <button id="btn-next" class="w-full bg-slate-600 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed transition-all" disabled>กรุณาเลือกคำตอบ</button>
+    </div>
+
+    <div id="result-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in text-center">
+        <div class="mb-6">
+            <div id="status-icon" class="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 text-green-500 rounded-full mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h2 class="text-3xl font-bold text-white font-sarabun">ส่งข้อสอบแล้ว!</h2>
+        </div>
+
+        <div class="bg-slate-900/50 border border-slate-700 rounded-2xl p-6 mb-6 text-left space-y-3">
+            <div class="flex justify-between items-center">
+                <span class="text-slate-400">นักศึกษา:</span>
+                <span id="res-name" class="font-semibold text-blue-400"></span>
+            </div>
+            <div class="flex justify-between items-center border-t border-slate-800 pt-2">
+                <span class="text-slate-400">รหัส:</span>
+                <span id="res-id" class="font-semibold text-blue-400"></span>
+            </div>
+            <div class="flex justify-between items-center border-t border-slate-800 pt-2 text-lg">
+                <span class="text-slate-400 font-sarabun">คะแนน:</span>
+                <span class="text-2xl font-bold text-green-400"><span id="res-score"></span> / <span id="res-total"></span></span>
+            </div>
+        </div>
+
+        <p id="save-status" class="text-sm text-slate-400 mb-4 italic">กำลังบันทึกคะแนน...</p>
+        <div class="space-y-2 font-sarabun">
+            <button id="btn-download-excel" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                ดาวน์โหลดไฟล์ยืนยัน (Excel)
+            </button>
+            <button onclick="location.reload()" class="w-full border border-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition">กลับหน้าหลัก</button>
+        </div>
+    </div>
+
+    <div id="cheat-modal" class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-red-600 p-8 rounded-2xl text-center max-w-sm border-2 border-red-400 shadow-2xl">
+            <h3 class="text-2xl font-bold mb-2 font-sarabun">ห้ามสลับหน้าจอ!</h3>
+            <p class="text-red-100 mb-6 font-light font-sarabun">ระบบตรวจพบการสลับหน้าต่าง พฤติกรรมนี้จะถูกบันทึกเพื่อตรวจสอบ</p>
+            <button onclick="document.getElementById('cheat-modal').classList.add('hidden')" class="bg-white text-red-600 px-8 py-3 rounded-xl font-bold shadow-lg">ฉันจะกลับไปทำต่อ</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // ส่วนจัดการข้อสอบ (รวม 80 ข้อ)
+        // ==========================================
+        const masterQuestions = [
+            { q: "คำสั่งใดใน AutoCAD ที่ใช้สร้างเส้นตรง?", options: ["CIRCLE", "RECTANGLE", "LINE", "ARC"], correct: 2 },
+            { q: "นามสกุลไฟล์หลักของ AutoCAD คืออะไร?", options: [".jpg", ".dwg", ".exe", ".pdf"], correct: 1 },
+            { q: "คำสั่ง ERASE ใน AutoCAD ใช้ทำอะไร?", options: ["เปลี่ยนสีของวัตถุหรือเส้น", "ลบวัตถุหรือเส้นที่เลือกออกจากแบบ", "ยืดเส้นให้ยาวขึ้น", "ย้ายวัตถุไปยังตำแหน่งใหม่"], correct: 1 },
+            { q: "คำสั่งใดใน AutoCAD ใช้ต่อเส้นให้ยาวขึ้นจนชนกับขอบที่กำหนด?", options: ["EXTEND", "TRIM", "FORMAT", "ERASE"], correct: 0 },
+            { q: "คำสั่ง 'TRIM' ใช้สำหรับทำอะไร?", options: ["ยืดเส้น", "สร้างวงกลม", "ตัดเส้นส่วนเกิน", "เปลี่ยนสีเส้น"], correct: 2 },
+            { q: "คีย์ลัด (Shortcut) สำหรับคำสั่ง LINE คืออะไร?", options: ["LI", "L", "LN", "LE"], correct: 1 },
+            { q: "ปุ่มใดบนคีย์บอร์ดที่ใช้เพื่อยกเลิกคำสั่งที่กำลังใช้งานอยู่?", options: ["Enter", "Spacebar", "Esc", "Shift"], correct: 2 },
+            { q: "ปุ่ม F8 ใช้สำหรับเปิด/ปิดโหมดใด?", options: ["OSNAP", "GRID", "ORTHO", "POLAR"], correct: 2 },
+            { q: "โหมด ORTHO มีหน้าที่ทำอะไร?", options: ["ล็อคให้ลากเส้นได้เฉพาะแนวนอนและแนวตั้ง", "ช่วยในการจับจุดกึ่งกลาง", "แสดงเส้นกริดบนหน้าจอ", "แสดงความหนาของเส้น"], correct: 0 },
+            { q: "ปุ่ม F3 ใช้สำหรับเปิด/ปิดโหมดใด?", options: ["SNAP", "OSNAP (Object Snap)", "ORTHO", "DYNAMIC INPUT"], correct: 1 },
+            { q: "คำสั่งใดใช้ในการทำสำเนาวัตถุ?", options: ["MOVE", "COPY", "MIRROR", "OFFSET"], correct: 1 },
+            { q: "คีย์ลัดสำหรับคำสั่ง COPY คือข้อใด?", options: ["C", "CO", "CP", "ถูกทั้ง CO และ CP"], correct: 3 },
+            { q: "คำสั่งใดใช้ในการย้ายวัตถุ?", options: ["MOVE", "PAN", "OFFSET", "ARRAY"], correct: 0 },
+            { q: "คีย์ลัดสำหรับคำสั่ง MOVE คืออะไร?", options: ["MO", "M", "MV", "ME"], correct: 1 },
+            { q: "คำสั่งใดใช้หมุนวัตถุ?", options: ["REVOLVE", "CIRCLE", "ROTATE", "SPIN"], correct: 2 },
+            { q: "คำสั่ง OFFSET ใช้ทำอะไร?", options: ["สร้างเส้นขนานกับเส้นเดิมตามระยะที่กำหนด", "ลบเส้นส่วนเกิน", "ย้ายจุดศูนย์กลาง", "ลบมุมของสี่เหลี่ยม"], correct: 0 },
+            { q: "คีย์ลัดของคำสั่ง OFFSET คืออะไร?", options: ["OF", "OS", "O", "FF"], correct: 2 },
+            { q: "คำสั่งใดใช้สะท้อนวัตถุเหมือนกระจกเงา?", options: ["REVERSE", "MIRROR", "FLIP", "INVERT"], correct: 1 },
+            { q: "คีย์ลัดของคำสั่ง MIRROR คืออะไร?", options: ["M", "MI", "MR", "MIR"], correct: 1 },
+            { q: "คำสั่ง FILLET ใช้สำหรับทำอะไร?", options: ["ลบมุมให้เป็นส่วนโค้ง", "ตัดมุมให้เป็นแนวทแยงตรง", "รวมเส้นหลายเส้นเข้าด้วยกัน", "แยกชิ้นส่วนของวัตถุ"], correct: 0 },
+            { q: "คำสั่ง CHAMFER แตกต่างจาก FILLET อย่างไร?", options: ["CHAMFER ลบมุมเป็นส่วนโค้ง", "CHAMFER ลบมุมเป็นแนวตัดเส้นตรง", "CHAMFER ใช้สร้างวงกลม", "CHAMFER ใช้เปลี่ยนสีเส้น"], correct: 1 },
+            { q: "คีย์ลัดของคำสั่ง FILLET คือข้อใด?", options: ["FI", "F", "FL", "FT"], correct: 1 },
+            { q: "คำสั่งใดใช้สร้างรูปสี่เหลี่ยมมุมฉาก?", options: ["SQUARE", "POLYGON", "RECTANGLE", "BOX"], correct: 2 },
+            { q: "คีย์ลัดของคำสั่ง RECTANGLE คือข้อใด?", options: ["R", "RE", "REC", "RT"], correct: 2 },
+            { q: "คำสั่ง CIRCLE ใช้สร้างรูปอะไร?", options: ["วงรี", "วงกลม", "ส่วนโค้ง", "เส้นตรง"], correct: 1 },
+            { q: "คีย์ลัดของคำสั่ง CIRCLE คือข้อใด?", options: ["C", "CI", "CR", "CL"], correct: 0 },
+            { q: "คำสั่ง POLYGON ใช้สำหรับสร้างอะไร?", options: ["วงกลม", "เส้นประ", "รูปหลายเหลี่ยมด้านเท่า", "ส่วนโค้ง"], correct: 2 },
+            { q: "คำสั่งใดใช้สำหรับเขียนส่วนโค้ง?", options: ["CIRCLE", "CURVE", "ARC", "SPLINE"], correct: 2 },
+            { q: "คำสั่ง PLINE (Polyline) แตกต่างจากคำสั่ง LINE อย่างไร?", options: ["PLINE เปลี่ยนสีได้", "เส้นจาก PLINE จะเชื่อมต่อเป็นวัตถุชิ้นเดียวกันเสมอ", "PLINE วาดได้เฉพาะแนวนอน", "ไม่ต่างกัน"], correct: 1 },
+            { q: "นามสกุลไฟล์ที่ใช้เก็บเป็นเทมเพลตมาตรฐาน (Template) ของ AutoCAD คืออะไร?", options: [".dwg", ".dws", ".dxf", ".dwt"], correct: 3 },
+            { q: "หากไฟล์หลักเกิดความเสียหาย สามารถกู้คืนจากไฟล์แบคอัปที่มีนามสกุลใด?", options: [".bak", ".tmp", ".old", ".sav"], correct: 0 },
+            { q: "คำสั่ง PAN มีหน้าที่ทำอะไร?", options: ["ซูมเข้า-ออก", "เลื่อนมุมมองหน้าจอโดยไม่เปลี่ยนตำแหน่งพิกัด", "หมุนหน้าจอแบบ 3 มิติ", "ย้ายวัตถุ"], correct: 1 },
+            { q: "การใช้งานคำสั่ง PAN อย่างรวดเร็วด้วยเมาส์ ทำได้อย่างไร?", options: ["คลิกซ้ายค้างไว้", "คลิกขวาค้างไว้", "กดปุ่มลูกกลิ้งเมาส์ (Scroll wheel) ค้างไว้แล้วลาก", "หมุนลูกกลิ้งเมาส์ขึ้นลง"], correct: 2 },
+            { q: "การหมุนลูกกลิ้งเมาส์ (Scroll wheel) ขึ้นหรือลง มีผลอย่างไร?", options: ["เลื่อนซ้าย-ขวา", "เลื่อนขึ้น-ลง", "ซูมเข้า-ออก (Zoom In/Out)", "เปลี่ยนเลเยอร์"], correct: 2 },
+            { q: "คำสั่งใดใช้ดูภาพรวมของชิ้นงานทั้งหมดให้พอดีกับหน้าจอ?", options: ["ZOOM > All", "ZOOM > Extents", "PAN > All", "VIEW > Fit"], correct: 1 },
+            { q: "คำสั่ง EXPLODE ใช้ทำอะไร?", options: ["ระเบิดวัตถุที่รวมกันอยู่ให้แยกเป็นชิ้นส่วนย่อยๆ", "ลบวัตถุทั้งหมด", "ขยายขนาดวัตถุให้ใหญ่ขึ้น", "ลบเลเยอร์ที่ไม่ได้ใช้งาน"], correct: 0 },
+            { q: "คีย์ลัดของคำสั่ง EXPLODE คือข้อใด?", options: ["E", "EX", "EXP", "X"], correct: 3 },
+            { q: "คำสั่งใดใช้ปรับขนาดวัตถุให้ใหญ่ขึ้นหรือเล็กลงตามอัตราส่วน?", options: ["STRETCH", "LENGTHEN", "SCALE", "EXTEND"], correct: 2 },
+            { q: "คีย์ลัดของคำสั่ง SCALE คือข้อใด?", options: ["S", "SC", "SL", "SCA"], correct: 1 },
+            { q: "คำสั่ง STRETCH มีจุดประสงค์หลักเพื่ออะไร?", options: ["ยืดหรือหดวัตถุบางส่วน", "ขยายวัตถุทั้งชิ้น", "บิดวัตถุให้เสียรูป", "ลบเส้นส่วนเกิน"], correct: 0 },
+            { q: "การเลือกวัตถุโดยลากเมาส์จากขวาไปซ้าย (กรอบสีเขียว) หมายถึงอะไร?", options: ["ต้องครอบวัตถุให้มิดถึงจะเลือกได้", "แตะโดนวัตถุเพียงบางส่วนก็ถือว่าเลือกวัตถุนั้นแล้ว", "เป็นการยกเลิกการเลือก", "เป็นการลบวัตถุ"], correct: 1 },
+            { q: "การเลือกวัตถุโดยลากเมาส์จากซ้ายไปขวา (กรอบสีน้ำเงิน) หมายถึงอะไร?", options: ["ต้องครอบวัตถุให้มิดทั้งชิ้นถึงจะเลือกได้", "แตะโดนส่วนใดส่วนหนึ่งก็เลือกได้เลย", "เลือกเฉพาะเส้นตรง", "เลือกเฉพาะบล็อก"], correct: 0 },
+            { q: "ฟังก์ชัน OSNAP > Endpoint ใช้เพื่อจับจุดใดของวัตถุ?", options: ["จุดกึ่งกลาง", "จุดศูนย์กลาง", "จุดปลายสุดของเส้น", "จุดตัด"], correct: 2 },
+            { q: "ฟังก์ชัน OSNAP > Midpoint ใช้เพื่อจับจุดใด?", options: ["จุดปลายเส้น", "จุดศูนย์กลางวงกลม", "จุดกึ่งกลางของเส้น", "จุดสัมผัส"], correct: 2 },
+            { q: "ฟังก์ชัน OSNAP > Center ใช้เพื่อจับจุดใด?", options: ["จุดศูนย์กลางของวงกลมหรือส่วนโค้ง", "จุดกึ่งกลางของหน้าจอ", "จุดตัดของเส้น 2 เส้น", "จุดตั้งฉาก"], correct: 0 },
+            { q: "ฟังก์ชัน OSNAP > Intersection ใช้เพื่อจับจุดใด?", options: ["จุดปลาย", "จุดตัดกันของเส้นหรือวัตถุ", "จุดศูนย์กลาง", "จุดแบ่งครึ่ง"], correct: 1 },
+            { q: "Layer ใน AutoCAD เปรียบเสมือนสิ่งใด?", options: ["ปากกาสีต่างๆ", "แผ่นใสที่ซ้อนทับกันในการเขียนแบบ", "เครื่องมือวัดขนาด", "ไฟล์แบคอัป"], correct: 1 },
+            { q: "คำสั่งใดใช้เปิดหน้าต่างการตั้งค่า Layer?", options: ["LAYER (LA)", "COLOR", "LINETYPE", "PROPERTIES"], correct: 0 },
+            { q: "สถานะ 'Freeze' ใน Layer มีผลอย่างไร?", options: ["ซ่อนเลเยอร์และไม่นำมาคำนวณตอนแสดงผล", "ล็อคไม่ให้แก้ไขแต่ยังมองเห็น", "เปลี่ยนเลเยอร์เป็นสีเทา", "ลบเลเยอร์ทิ้ง"], correct: 0 },
+            { q: "การตั้งค่า Linetype ใน Layer ใช้กำหนดอะไร?", options: ["สีของเส้น", "ชนิดของเส้น (เช่น เส้นทึบ, เส้นประ)", "ความหนาของเส้น", "ความโปร่งใสของเส้น"], correct: 1 },
+            { q: "การตั้งค่า Lineweight ใช้กำหนดอะไร?", options: ["น้ำหนักไฟล์", "ชนิดของเส้น", "ความหนาของเส้นที่ใช้พิมพ์", "ความยาวของเส้น"], correct: 2 },
+            { q: "คำสั่ง HATCH ใช้สำหรับทำอะไร?", options: ["ลบพื้นที่", "ใส่ลวดลายหรือสีทึบลงในพื้นที่ปิด", "สร้างเส้นขอบเขต", "คำนวณพื้นที่"], correct: 1 },
+            { q: "คีย์ลัดของคำสั่ง HATCH คืออะไร?", options: ["HA", "HT", "H", "HC"], correct: 2 },
+            { q: "คำสั่งใดใช้สร้างกลุ่มวัตถุให้กลายเป็นชิ้นเดียวกันเพื่อให้เรียกใช้ได้ง่าย (Block)?", options: ["GROUP", "JOIN", "BLOCK", "WBLOCK"], correct: 2 },
+            { q: "คำสั่งใดใช้แทรก Block ที่สร้างไว้ลงในพื้นที่ทำงาน?", options: ["INSERT", "ATTACH", "PASTE", "IMPORT"], correct: 0 },
+            { q: "ความแตกต่างระหว่าง BLOCK และ WBLOCK คืออะไร?", options: ["ไม่มีความแตกต่าง", "BLOCK ใช้ในไฟล์ปัจจุบัน, WBLOCK บันทึกเป็นไฟล์ .dwg เพื่อใช้กับไฟล์อื่นได้", "WBLOCK ไม่สามารถแก้ไขได้", "BLOCK เป็นคำสั่งของรุ่นเก่า"], correct: 1 },
+            { q: "คำสั่ง TEXT และ MTEXT ต่างกันอย่างไร?", options: ["TEXT เขียนข้อความบรรทัดเดียว MTEXT เขียนข้อความแบบหลายบรรทัดคล้ายย่อหน้า", "TEXT เปลี่ยนสีไม่ได้", "MTEXT ใช้ได้เฉพาะภาษาอังกฤษ", "ไม่ต่างกัน"], correct: 0 },
+            { q: "คีย์ลัดสำหรับ MTEXT คืออะไร?", options: ["TX", "MT", "T", "ถูกทั้ง MT และ T"], correct: 3 },
+            { q: "คำสั่งใดใช้สำหรับให้ขนาดความยาวในแนวแกน X หรือ Y (แนวตั้ง/แนวนอน)?", options: ["DIMALIGNED", "DIMLINEAR", "DIMANGULAR", "DIMRADIUS"], correct: 1 },
+            { q: "คำสั่ง DIMALIGNED ใช้สำหรับให้ขนาดแบบใด?", options: ["แนวนอนเท่านั้น", "แนวตั้งเท่านั้น", "แนวขนานกับเส้นเอียง", "ความยาวส่วนโค้ง"], correct: 2 },
+            { q: "คำสั่งใดใช้บอกขนาดรัศมีของวงกลม?", options: ["DIMDIAMETER", "DIMRADIUS", "DIMANGULAR", "DIMLINEAR"], correct: 1 },
+            { q: "คำสั่งใดใช้บอกขนาดเส้นผ่านศูนย์กลาง?", options: ["DIMRADIUS", "DIMDIAMETER", "DIMCENTER", "DIMARC"], correct: 1 },
+            { q: "คำสั่ง DIMANGULAR ใช้บอกขนาดอะไร?", options: ["องศาหรือมุม", "ความยาว", "พื้นที่", "เส้นรอบรูป"], correct: 0 },
+            { q: "คำสั่งใดใช้เปิดหน้าต่างตั้งค่ารูปแบบเส้นบอกขนาด?", options: ["DIMSTYLE (D)", "DIMENSION", "FORMAT", "UNITS"], correct: 0 },
+            { q: "ระบบพิกัดพื้นฐานของ AutoCAD เรียกว่าอะไร?", options: ["WCS (World Coordinate System)", "UCS (User Coordinate System)", "GPS", "XYZ System"], correct: 0 },
+            { q: "คำสั่งใดใช้ตรวจสอบระยะห่างระหว่างจุด 2 จุด?", options: ["LENGTH", "MEASURE", "DIST (DI)", "AREA"], correct: 2 },
+            { q: "คำสั่ง AREA ใช้ทำอะไร?", options: ["คำนวณหาพื้นที่และเส้นรอบรูป", "สร้างพื้นที่ปิด", "เปลี่ยนสีพื้นที่", "ลบพื้นที่"], correct: 0 },
+            { q: "การพิมพ์ '@50,0' ในคำสั่งบรรทัดหมายความว่าอย่างไร?", options: ["ไปที่จุดพิกัด X=50, Y=0 ของจอ", "ไปทางขวา 50 หน่วยจากจุดล่าสุด", "หมุน 50 องศา", "วาดวงกลมรัศมี 50"], correct: 1 },
+            { q: "การพิมพ์ '@50<45' ในคำสั่งบรรทัดหมายความว่าอย่างไร?", options: ["วาดเส้นยาว 50 หน่วย ทำมุม 45 องศาจากจุดล่าสุด", "วาดเส้นยาว 45 หน่วย ทำมุม 50 องศา", "ไปที่พิกัด X=50, Y=45", "ย่อขนาดลง 45%"], correct: 0 },
+            { q: "Model Space และ Paper Space ต่างกันอย่างไร?", options: ["Model ไว้วาดชิ้นงาน, Paper ไว้จัดหน้ากระดาษเพื่อสั่งพิมพ์", "Model มีสีดำ, Paper มีสีขาวเสมอ", "Model วาดได้แค่ 2D, Paper วาด 3D", "ไม่ต่างกัน"], correct: 0 },
+            { q: "หน้าต่าง Viewport มักถูกใช้งานในส่วนใดมากที่สุด?", options: ["Model Space", "Paper Space (Layout)", "Block Editor", "Layer Properties"], correct: 1 },
+            { q: "คำสั่ง PLOT เทียบเท่ากับการทำอะไรในโปรแกรมอื่น?", options: ["Save As", "Export", "Print", "Undo"], correct: 2 },
+            { q: "คีย์ลัดสำหรับคำสั่ง PLOT หรือการสั่งพิมพ์คือข้อใด?", options: ["Ctrl + P", "Ctrl + S", "Ctrl + C", "Ctrl + V"], correct: 0 },
+            { q: "ถ้าต้องการยกเลิกการกระทำล่าสุด (Undo) ต้องกดคีย์ลัดใด?", options: ["Ctrl + Y", "Ctrl + Z", "Ctrl + X", "Ctrl + A"], correct: 1 },
+            { q: "คีย์ลัด U และ Enter ใน AutoCAD มีผลอย่างไร?", options: ["ขีดเส้นใต้ข้อความ", "ยกเลิกคำสั่ง (Undo)", "อัปเดตหน้าจอ", "ล็อคเลเยอร์"], correct: 1 },
+            { q: "ปุ่ม F2 ทำหน้าที่อะไรใน AutoCAD?", options: ["บันทึกไฟล์", "เปิด/ปิดหน้าต่าง Command History", "เปิดโหมด Snap", "เปิด Help"], correct: 1 },
+            { q: "หากเมนูแถบเครื่องมือด้านบน (Ribbon) หายไป สามารถใช้คำสั่งใดเรียกกลับมา?", options: ["RIBBON", "MENUBAR", "TOOLBAR", "SHOW"], correct: 0 },
+            { q: "คำสั่ง REGEN (RE) ทำหน้าที่อะไร?", options: ["ลบไฟล์ขยะ", "รีเฟรชหรือคำนวณการแสดงผลของเส้นโค้งและหน้าจอใหม่", "สร้างบล็อกใหม่", "กู้คืนไฟล์ที่ลบ"], correct: 1 },
+            { q: "คำสั่ง DIVIDE ใช้ทำอะไร?", options: ["ตัดเส้นออกเป็นส่วนๆ ที่ขาดออกจากกัน", "แบ่งวัตถุออกเป็นช่วงๆ ที่มีระยะห่างเท่ากันโดยการวางจุด (Point)", "หารระยะความยาวเส้น", "ลดขนาดวัตถุลงครึ่งหนึ่ง"], correct: 1 },
+            { q: "คำสั่ง JOIN ทำหน้าที่อะไร?", options: ["รวมเส้นหลายเส้นที่ต่อกันให้กลายเป็นเส้นเดียวกัน", "เชื่อมต่ออินเทอร์เน็ต", "จับกลุ่มวัตถุ", "สร้างจุดตัด"], correct: 0 }
+        ];
+
+        // ==========================================
+        // การตั้งค่า Firebase
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB_1lxjfGHBvbuuT2GKA9N9pHFs8HZ0ydQ",
+            authDomain: "autocad-quiz.firebaseapp.com",
+            projectId: "autocad-quiz",
+            storageBucket: "autocad-quiz.firebasestorage.app",
+            messagingSenderId: "653102807487",
+            appId: "1:653102807487:web:d109bd15a758bdb8a4498a",
+            measurementId: "G-WYZGWPVKQC"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = 'autocad-quiz-v1';
+
+        let isFirebaseActive = false;
+        let currentUser = null;
+        let score = 0;
+        let currentIdx = 0;
+        let startTime, timerInterval;
+        let cheatCount = 0;
+        let selectedOption = null;
+        let selectedQuestions = [];
+
+        // ฟังก์ชันเริ่มต้นเชื่อมต่อ
+        async function init() {
+            try {
+                const skipTimeout = setTimeout(() => {
+                    if (!isFirebaseActive) document.getElementById('btn-skip-loading').classList.remove('hidden');
+                }, 8000);
+
+                await signInAnonymously(auth);
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        clearTimeout(skipTimeout);
+                        currentUser = user;
+                        isFirebaseActive = true;
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        document.getElementById('start-page').classList.remove('hidden');
+                    }
+                });
+            } catch (e) {
+                console.error("Firebase Connection Failed:", e);
+                isFirebaseActive = false;
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('start-page').classList.remove('hidden');
+            }
+        }
+
+        // เริ่มต้นบททดสอบ
+        document.getElementById('btn-start').onclick = () => {
+            const name = document.getElementById('student-name').value.trim();
+            const sid = document.getElementById('student-id').value.trim();
+            if (!name || !sid) return alert("กรุณาระบุชื่อและรหัสนักศึกษา");
+
+            // สุ่มข้อสอบและเตรียมข้อมูล
+            selectedQuestions = [...masterQuestions].sort(() => Math.random() - 0.5);
+            document.getElementById('total-questions-num').innerText = ` / ${selectedQuestions.length}`;
+            
+            document.getElementById('start-page').classList.add('hidden');
+            document.getElementById('quiz-page').classList.remove('hidden');
+            
+            startTime = new Date();
+            timerInterval = setInterval(updateTimer, 1000);
+            displayQuestion();
+
+            // ตรวจสอบการโกง
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    cheatCount++;
+                    document.getElementById('cheat-modal').classList.remove('hidden');
+                }
+            });
+        };
+
+        function updateTimer() {
+            const diff = new Date(new Date() - startTime);
+            const m = String(diff.getUTCMinutes()).padStart(2, '0');
+            const s = String(diff.getUTCSeconds()).padStart(2, '0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
+        }
+
+        function displayQuestion() {
+            const data = selectedQuestions[currentIdx];
+            const btnNext = document.getElementById('btn-next');
+            
+            document.getElementById('current-question-num').innerText = currentIdx + 1;
+            document.getElementById('question-text').innerText = data.q;
+            
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            selectedOption = null;
+            btnNext.disabled = true;
+            btnNext.classList.add('opacity-50');
+
+            data.options.forEach((opt, i) => {
+                const b = document.createElement('button');
+                b.className = "w-full text-left p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl transition-all font-sarabun";
+                b.innerText = opt;
+                b.onclick = () => {
+                    Array.from(container.children).forEach(c => c.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-900/20'));
+                    b.classList.add('ring-2', 'ring-blue-500', 'bg-blue-900/20');
+                    selectedOption = i;
+                    btnNext.disabled = false;
+                    btnNext.classList.remove('opacity-50');
+                    
+                    if (currentIdx === selectedQuestions.length - 1) {
+                        btnNext.innerText = "ส่งคำตอบทั้งหมด";
+                    } else {
+                        btnNext.innerText = "ข้อถัดไป";
+                    }
+                };
+                container.appendChild(b);
+            });
+        }
+
+        document.getElementById('btn-next').onclick = async () => {
+            if (selectedOption === selectedQuestions[currentIdx].correct) score++;
+            
+            if (currentIdx < selectedQuestions.length - 1) {
+                currentIdx++;
+                displayQuestion();
+            } else {
+                await finishQuiz();
+            }
+        };
+
+        // สรุปผลและบันทึก
+        async function finishQuiz() {
+            clearInterval(timerInterval);
+            document.getElementById('quiz-page').classList.add('hidden');
+            document.getElementById('loading-screen').classList.remove('hidden');
+            document.getElementById('loading-text').innerText = "กำลังจัดเก็บผลการสอบ...";
+
+            const name = document.getElementById('student-name').value;
+            const sid = document.getElementById('student-id').value;
+            const timeTaken = document.getElementById('timer').innerText;
+
+            let saved = false;
+            if (isFirebaseActive && currentUser) {
+                try {
+                    const resultRef = collection(db, 'artifacts', appId, 'public', 'data', 'exam_results');
+                    await addDoc(resultRef, {
+                        student_name: name,
+                        student_id: sid.toString(),
+                        score: score,
+                        total_score: selectedQuestions.length,
+                        time_taken: timeTaken,
+                        cheating_attempts: cheatCount,
+                        timestamp: serverTimestamp(),
+                        uid: currentUser.uid
+                    });
+                    saved = true;
+                } catch (e) {
+                    console.error("Firebase Store Error:", e);
+                }
+            }
+
+            document.getElementById('res-name').innerText = name;
+            document.getElementById('res-id').innerText = sid;
+            document.getElementById('res-score').innerText = score;
+            document.getElementById('res-total').innerText = selectedQuestions.length;
+            
+            const statusEl = document.getElementById('save-status');
+            if (saved) {
+                statusEl.innerText = "✅ บันทึกข้อมูลออนไลน์สำเร็จ";
+                statusEl.className = "text-sm text-green-400 mb-4 font-semibold";
+            } else {
+                statusEl.innerText = "⚠️ บันทึกออนไลน์ไม่สำเร็จ แต่ดาวน์โหลดไฟล์ได้";
+                statusEl.className = "text-sm text-orange-400 mb-4 font-bold";
+            }
+
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('result-page').classList.remove('hidden');
+        }
+
+        // ดาวน์โหลดไฟล์ Excel
+        window.downloadExcel = function() {
+            const name = document.getElementById('res-name').innerText;
+            const id = document.getElementById('res-id').innerText;
+            const scoreVal = document.getElementById('res-score').innerText;
+            const totalVal = document.getElementById('res-total').innerText;
+            
+            const data = [
+                ["รายงานผลคะแนนสอบ AutoCAD"],
+                ["--------------------------"],
+                ["ชื่อ-นามสกุล", name],
+                ["รหัสนักศึกษา", id],
+                ["คะแนนที่ได้", `${scoreVal} / ${totalVal}`],
+                ["เวลาที่ใช้", document.getElementById('timer').innerText],
+                ["พฤติกรรมการสลับจอ", cheatCount + " ครั้ง"],
+                ["วันที่สอบ", new Date().toLocaleString('th-TH')],
+                ["--------------------------"],
+                ["สถานะการส่ง", isFirebaseActive ? "ออนไลน์ (Firebase)" : "ออฟไลน์ (Local)"]
+            ];
+            
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, "Result");
+            XLSX.writeFile(wb, `AutoCAD_Score_${id}.xlsx`);
+        };
+
+        document.getElementById('btn-download-excel').onclick = () => window.downloadExcel();
+        document.getElementById('btn-skip-loading').onclick = () => {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('start-page').classList.remove('hidden');
+        };
+
+        init();
+    </script>
+</body>
+</html>
