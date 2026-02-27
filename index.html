@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AutoCAD Basic Quiz - Firebase Integrated</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
@@ -22,16 +19,16 @@
     <!-- Loading Screen -->
     <div id="loading-screen" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[100]">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500 mb-4"></div>
-        <p id="loading-text">กำลังเตรียมความพร้อม...</p>
-        <button id="btn-skip-loading" class="mt-6 text-slate-500 hover:text-blue-400 text-sm underline hidden">กดที่นี่เพื่อเข้าสู่ระบบ (โหมดสำรอง)</button>
+        <p id="loading-text">กำลังเชื่อมต่อฐานข้อมูล...</p>
+        <button id="btn-skip-loading" class="mt-6 text-slate-500 hover:text-blue-400 text-sm underline hidden">กดที่นี่เพื่อเข้าสู่ระบบ (ออฟไลน์โหมด)</button>
     </div>
 
     <!-- Start Page -->
-    <div id="start-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
-        <div class="text-center mb-8">
+    <div id="start-page" class="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in relative">
+        <button id="btn-admin-login" class="absolute top-4 right-4 text-xs text-slate-600 hover:text-blue-400 transition cursor-pointer">ผู้สอน</button>
+        <div class="text-center mb-8 mt-4">
             <h1 class="text-3xl font-bold text-blue-400 mb-2">AutoCAD Basic Quiz</h1>
             <p class="text-slate-400 font-light mb-2">แบบทดสอบพื้นฐาน AutoCAD สำหรับผู้เริ่มต้น</p>
-            <!-- แสดงจำนวนข้อในหน้าแรก -->
             <div class="inline-block bg-slate-700/50 border border-slate-600 rounded-full px-4 py-1 mt-2">
                 <p class="text-yellow-400 text-sm font-semibold">จำนวนข้อสอบทั้งหมด: <span id="display-total-start">0</span> ข้อ</p>
             </div>
@@ -47,7 +44,46 @@
             </div>
             <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 mt-4 cursor-pointer">เข้าสู่บททดสอบ</button>
         </div>
-        <p class="text-center text-xs text-slate-500 mt-6 font-mono">Firebase Status: Connected ✅</p>
+        <p id="db-status" class="text-center text-xs text-green-500 mt-6 font-mono">Firebase Status: Connected ✅</p>
+    </div>
+
+    <!-- Admin Dashboard Page -->
+    <div id="admin-page" class="max-w-5xl w-full bg-slate-800 p-6 md:p-8 rounded-2xl shadow-2xl border border-slate-700 hidden fade-in">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-slate-700 pb-4">
+            <div>
+                <h2 class="text-2xl font-bold text-blue-400 font-sarabun">ระบบรายงานผลคะแนน (ผู้สอน)</h2>
+                <p class="text-slate-400 text-sm mt-1">ข้อมูลถูกจัดเก็บและดึงมาจาก Firebase แบบ Real-time</p>
+            </div>
+            <div class="flex gap-2 w-full md:w-auto">
+                <button id="btn-refresh-data" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold transition flex items-center justify-center gap-2 cursor-pointer text-sm">
+                    รีเฟรชข้อมูล
+                </button>
+                <button id="btn-export-all" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold transition flex items-center justify-center gap-2 cursor-pointer text-sm shadow-lg">
+                    ดาวน์โหลด Excel (ทุกคน)
+                </button>
+                <button id="btn-close-admin" class="bg-red-900/50 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold transition flex items-center justify-center cursor-pointer text-sm border border-red-700">
+                    ปิด
+                </button>
+            </div>
+        </div>
+        
+        <div class="overflow-x-auto bg-slate-900 rounded-lg border border-slate-700 max-h-[60vh] overflow-y-auto">
+            <table class="w-full text-left border-collapse text-sm min-w-[800px]">
+                <thead class="sticky top-0 bg-slate-700 text-slate-300 shadow-md">
+                    <tr>
+                        <th class="p-3 border-b border-slate-600">วันที่-เวลาส่ง</th>
+                        <th class="p-3 border-b border-slate-600">รหัสนักศึกษา</th>
+                        <th class="p-3 border-b border-slate-600">ชื่อ-นามสกุล</th>
+                        <th class="p-3 border-b border-slate-600">คะแนน</th>
+                        <th class="p-3 border-b border-slate-600">เวลาที่ใช้</th>
+                        <th class="p-3 border-b border-slate-600">สลับจอ (ครั้ง)</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-table-body" class="text-slate-300 divide-y divide-slate-700/50">
+                    <tr><td colspan="6" class="p-8 text-center text-slate-500">กำลังโหลดข้อมูล...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Quiz Page -->
@@ -63,7 +99,6 @@
             <h2 id="question-text" class="text-xl md:text-2xl font-semibold mb-8 leading-snug font-sarabun">กำลังโหลดคำถาม...</h2>
             <div id="options-container" class="grid grid-cols-1 gap-3"></div>
         </div>
-        <!-- ปุ่มข้อถัดไป (สถานะเริ่มต้นจะถูกตั้งใน JS) -->
         <button id="btn-next" class="w-full transition-all duration-300" disabled>กรุณาเลือกคำตอบ</button>
     </div>
 
@@ -95,13 +130,8 @@
 
         <p id="save-status" class="text-sm text-slate-400 mb-4 italic">กำลังบันทึกคะแนน...</p>
         <div class="space-y-2 font-sarabun">
-            <button id="btn-download-excel" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2 cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                ดาวน์โหลดไฟล์ยืนยัน (Excel)
-            </button>
-            <button onclick="location.reload()" class="w-full border border-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition cursor-pointer">กลับหน้าหลัก</button>
+            <!-- ปุ่มโหลดใบเสร็จรายบุคคล ซ่อนไว้เผื่ออาจารย์ไม่อยากให้นักศึกษาโหลดเอง -->
+            <button onclick="location.reload()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition cursor-pointer">กลับหน้าหลัก</button>
         </div>
     </div>
 
@@ -117,10 +147,10 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
-        // ส่วนจัดการข้อสอบ (รวม 80 ข้อ)
+        // ข้อสอบ 80 ข้อ
         // ==========================================
         const masterQuestions = [
             { q: "คำสั่งใดใน AutoCAD ที่ใช้สร้างเส้นตรง?", options: ["CIRCLE", "RECTANGLE", "LINE", "ARC"], correct: 2 },
@@ -205,20 +235,19 @@
             { q: "คำสั่ง JOIN ทำหน้าที่อะไร?", options: ["รวมเส้นหลายเส้นที่ต่อกันให้กลายเป็นเส้นเดียวกัน", "เชื่อมต่ออินเทอร์เน็ต", "จับกลุ่มวัตถุ", "สร้างจุดตัด"], correct: 0 }
         ];
 
-        // แสดงจำนวนข้อสอบในหน้าแรก
         document.getElementById('display-total-start').innerText = masterQuestions.length;
 
         // ==========================================
-        // การตั้งค่า Firebase
+        // การตั้งค่า Firebase (นำข้อมูลจาก Console มาใส่ที่นี่)
         // ==========================================
         const firebaseConfig = {
+            // *** นำ Code ของคุณจาก Firebase Console มาวางแทนที่ตรงนี้ทั้งหมด ***
             apiKey: "AIzaSyB_1lxjfGHBvbuuT2GKA9N9pHFs8HZ0ydQ",
             authDomain: "autocad-quiz.firebaseapp.com",
             projectId: "autocad-quiz",
             storageBucket: "autocad-quiz.firebasestorage.app",
             messagingSenderId: "653102807487",
-            appId: "1:653102807487:web:d109bd15a758bdb8a4498a",
-            measurementId: "G-WYZGWPVKQC"
+            appId: "1:653102807487:web:d109bd15a758bdb8a4498a"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -234,13 +263,14 @@
         let cheatCount = 0;
         let selectedOption = null;
         let selectedQuestions = [];
+        let allAdminData = [];
 
-        // ฟังก์ชันเริ่มต้นเชื่อมต่อ
+        // เริ่มเชื่อมต่อ
         async function init() {
             try {
                 const skipTimeout = setTimeout(() => {
                     if (!isFirebaseActive) document.getElementById('btn-skip-loading').classList.remove('hidden');
-                }, 8000);
+                }, 5000);
 
                 await signInAnonymously(auth);
                 
@@ -251,6 +281,7 @@
                         isFirebaseActive = true;
                         document.getElementById('loading-screen').classList.add('hidden');
                         document.getElementById('start-page').classList.remove('hidden');
+                        document.getElementById('db-status').innerText = "Firebase Status: Online ✅";
                     }
                 });
             } catch (e) {
@@ -258,16 +289,19 @@
                 isFirebaseActive = false;
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('start-page').classList.remove('hidden');
+                document.getElementById('db-status').innerText = "Firebase Status: Offline ❌ (ใช้งานแบบไม่บันทึกออนไลน์)";
+                document.getElementById('db-status').classList.replace('text-green-500', 'text-red-500');
             }
         }
 
-        // เริ่มต้นบททดสอบ
+        // ==========================================
+        // ระบบทำข้อสอบ
+        // ==========================================
         document.getElementById('btn-start').onclick = () => {
             const name = document.getElementById('student-name').value.trim();
             const sid = document.getElementById('student-id').value.trim();
             if (!name || !sid) return alert("กรุณาระบุชื่อและรหัสนักศึกษา");
 
-            // สุ่มข้อสอบและเตรียมข้อมูล
             selectedQuestions = [...masterQuestions].sort(() => Math.random() - 0.5);
             document.getElementById('total-questions-num').innerText = ` / ${selectedQuestions.length}`;
             
@@ -278,9 +312,8 @@
             timerInterval = setInterval(updateTimer, 1000);
             displayQuestion();
 
-            // ตรวจสอบการโกง
             document.addEventListener('visibilitychange', () => {
-                if (document.hidden) {
+                if (document.hidden && !document.getElementById('quiz-page').classList.contains('hidden')) {
                     cheatCount++;
                     document.getElementById('cheat-modal').classList.remove('hidden');
                 }
@@ -305,7 +338,6 @@
             container.innerHTML = '';
             selectedOption = null;
             
-            // ตั้งค่าสถานะปุ่มตอนเริ่มข้อใหม่ (ปิดการกด, ห้ามเมาส์คลิก)
             btnNext.disabled = true;
             btnNext.className = "w-full bg-slate-700 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed opacity-50 transition-all duration-300";
             btnNext.innerText = "กรุณาเลือกคำตอบ";
@@ -319,7 +351,6 @@
                     b.classList.add('ring-2', 'ring-blue-500', 'bg-blue-900/20');
                     selectedOption = i;
                     
-                    // เมื่อเลือกคำตอบแล้ว เปิดให้ปุ่มคลิกได้ และเปลี่ยนเมาส์เป็นรูปนิ้วชี้
                     btnNext.disabled = false;
                     
                     if (currentIdx === selectedQuestions.length - 1) {
@@ -336,7 +367,6 @@
 
         document.getElementById('btn-next').onclick = async () => {
             if (selectedOption === null) return;
-
             if (selectedOption === selectedQuestions[currentIdx].correct) score++;
             
             if (currentIdx < selectedQuestions.length - 1) {
@@ -347,12 +377,11 @@
             }
         };
 
-        // สรุปผลและบันทึก
         async function finishQuiz() {
             clearInterval(timerInterval);
             document.getElementById('quiz-page').classList.add('hidden');
             document.getElementById('loading-screen').classList.remove('hidden');
-            document.getElementById('loading-text').innerText = "กำลังจัดเก็บผลการสอบ...";
+            document.getElementById('loading-text').innerText = "กำลังจัดเก็บผลการสอบลงเซิร์ฟเวอร์...";
 
             const name = document.getElementById('student-name').value;
             const sid = document.getElementById('student-id').value;
@@ -385,44 +414,131 @@
             
             const statusEl = document.getElementById('save-status');
             if (saved) {
-                statusEl.innerText = "✅ บันทึกข้อมูลออนไลน์สำเร็จ";
+                statusEl.innerText = "✅ บันทึกข้อมูลเข้าส่วนกลางเรียบร้อยแล้ว อาจารย์สามารถตรวจสอบได้";
                 statusEl.className = "text-sm text-green-400 mb-4 font-semibold";
             } else {
-                statusEl.innerText = "⚠️ บันทึกออนไลน์ไม่สำเร็จ แต่ดาวน์โหลดไฟล์ได้";
-                statusEl.className = "text-sm text-orange-400 mb-4 font-bold";
+                statusEl.innerText = "⚠️ ไม่สามารถบันทึกออนไลน์ได้";
+                statusEl.className = "text-sm text-red-400 mb-4 font-bold";
             }
 
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('result-page').classList.remove('hidden');
         }
 
-        // ดาวน์โหลดไฟล์ Excel
-        window.downloadExcel = function() {
-            const name = document.getElementById('res-name').innerText;
-            const id = document.getElementById('res-id').innerText;
-            const scoreVal = document.getElementById('res-score').innerText;
-            const totalVal = document.getElementById('res-total').innerText;
-            
-            const data = [
-                ["รายงานผลคะแนนสอบ AutoCAD"],
-                ["--------------------------"],
-                ["ชื่อ-นามสกุล", name],
-                ["รหัสนักศึกษา", id],
-                ["คะแนนที่ได้", `${scoreVal} / ${totalVal}`],
-                ["เวลาที่ใช้", document.getElementById('timer').innerText],
-                ["พฤติกรรมการสลับจอ", cheatCount + " ครั้ง"],
-                ["วันที่สอบ", new Date().toLocaleString('th-TH')],
-                ["--------------------------"],
-                ["สถานะการส่ง", isFirebaseActive ? "ออนไลน์ (Firebase)" : "ออฟไลน์ (Local)"]
-            ];
-            
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(data);
-            XLSX.utils.book_append_sheet(wb, ws, "Result");
-            XLSX.writeFile(wb, `AutoCAD_Score_${id}.xlsx`);
+        // ==========================================
+        // ระบบ Admin (ดึงข้อมูลทั้งหมดมาลงตาราง และ Excel)
+        // ==========================================
+        document.getElementById('btn-admin-login').onclick = () => {
+            const pwd = prompt("กรุณาใส่รหัสผ่านผู้สอน:");
+            // รหัสผ่านคือ admin123 (สามารถเปลี่ยนในโค้ดได้)
+            if (pwd === "admin123") {
+                document.getElementById('start-page').classList.add('hidden');
+                document.getElementById('admin-page').classList.remove('hidden');
+                loadAdminData();
+            } else if (pwd !== null) {
+                alert("รหัสผ่านไม่ถูกต้อง");
+            }
         };
 
-        document.getElementById('btn-download-excel').onclick = () => window.downloadExcel();
+        document.getElementById('btn-close-admin').onclick = () => {
+            document.getElementById('admin-page').classList.add('hidden');
+            document.getElementById('start-page').classList.remove('hidden');
+        };
+
+        document.getElementById('btn-refresh-data').onclick = () => loadAdminData();
+
+        async function loadAdminData() {
+            if (!isFirebaseActive || !currentUser) {
+                alert("ไม่ได้เชื่อมต่อ Firebase");
+                return;
+            }
+            
+            const tbody = document.getElementById('admin-table-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-blue-400 animate-pulse">กำลังโหลดข้อมูลจาก Firebase...</td></tr>';
+            
+            try {
+                // ดึงข้อมูลทั้งหมดจาก Collection
+                const querySnapshot = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'exam_results'));
+                allAdminData = [];
+                
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    allAdminData.push({
+                        id: doc.id,
+                        ...data,
+                        // แปลง Timestamp ของ Firebase เป็น JS Date
+                        jsDate: data.timestamp ? new Date(data.timestamp.seconds * 1000) : new Date() 
+                    });
+                });
+
+                // เรียงลำดับจากเวลาส่งล่าสุดไปเก่าสุด
+                allAdminData.sort((a, b) => b.jsDate - a.jsDate);
+                renderAdminTable();
+
+            } catch (error) {
+                console.error("Error fetching admin data: ", error);
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>';
+            }
+        }
+
+        function renderAdminTable() {
+            const tbody = document.getElementById('admin-table-body');
+            tbody.innerHTML = '';
+
+            if (allAdminData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">ยังไม่มีข้อมูลการสอบ</td></tr>';
+                return;
+            }
+
+            allAdminData.forEach(item => {
+                const dateStr = item.jsDate.toLocaleString('th-TH');
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-700/50 transition-colors";
+                row.innerHTML = `
+                    <td class="p-3 border-b border-slate-700/50">${dateStr}</td>
+                    <td class="p-3 border-b border-slate-700/50 font-mono text-blue-300">${item.student_id}</td>
+                    <td class="p-3 border-b border-slate-700/50">${item.student_name}</td>
+                    <td class="p-3 border-b border-slate-700/50 font-bold text-green-400">${item.score}/${item.total_score}</td>
+                    <td class="p-3 border-b border-slate-700/50 text-slate-400">${item.time_taken}</td>
+                    <td class="p-3 border-b border-slate-700/50 text-red-400">${item.cheating_attempts || 0}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Export All Data to Excel (จัดกลุ่มตามวันได้ใน Excel)
+        document.getElementById('btn-export-all').onclick = () => {
+            if (allAdminData.length === 0) return alert("ไม่มีข้อมูลให้ดาวน์โหลด");
+
+            // สร้าง Header ให้กับ Excel
+            const sheetData = [
+                ["วันที่และเวลาส่ง", "รหัสนักศึกษา", "ชื่อ-นามสกุล", "คะแนนที่ได้", "คะแนนเต็ม", "เวลาที่ใช้", "จำนวนครั้งที่สลับหน้าจอ"]
+            ];
+
+            // วนลูปยัดข้อมูลลง Array
+            allAdminData.forEach(item => {
+                sheetData.push([
+                    item.jsDate.toLocaleString('th-TH'), // จะจัดกลุ่มใน Excel ได้ง่ายเพราะมีวัน/เวลา
+                    item.student_id,
+                    item.student_name,
+                    item.score,
+                    item.total_score,
+                    item.time_taken,
+                    item.cheating_attempts || 0
+                ]);
+            });
+
+            // สร้าง Workbook และ Sheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+            
+            // ปรับความกว้างคอลัมน์
+            ws['!cols'] = [{wch: 25}, {wch: 15}, {wch: 30}, {wch: 10}, {wch: 10}, {wch: 15}, {wch: 25}];
+
+            XLSX.utils.book_append_sheet(wb, ws, "สรุปผลสอบทั้งหมด");
+            XLSX.writeFile(wb, `รายงานผลสอบ_AutoCAD_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.xlsx`);
+        };
+
         document.getElementById('btn-skip-loading').onclick = () => {
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('start-page').classList.remove('hidden');
